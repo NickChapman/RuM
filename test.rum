@@ -1,0 +1,22 @@
+x=0;
+if(x==4)
+	% do all of this stuff
+	x = x+2;
+else
+	%do this other stuff
+	y = 10;
+endif
+x="hello world";
+fundef z=yay(x, y, 10, "hey", 'hey')
+	stuff
+endfun
+while(sadf)
+stuff
+endwhile
+classdef x inherits from y
+	x.things_it_has;
+endclass
+.12
+0.12
+12
+$

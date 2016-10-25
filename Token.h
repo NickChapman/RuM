@@ -14,13 +14,17 @@ private:
     std::string lexeme;
 public:
     Token();
+
     Token(std::string lexeme, std::string tokenType);
+
     Token(const Token &toCopy);
 
     std::string getTokenType();
+
     void setTokenType(std::string tokenType);
 
     std::string getLexeme();
+
     void setLexeme(std::string lexeme);
 };
 

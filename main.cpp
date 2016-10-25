@@ -1,13 +1,28 @@
 #include <iostream>
+#include "RuM.h"
 
-int main() {
-    char* input = new char[1000];
-    std::cin.getline(input, 1000);
-    char* inputPosition = input;
-    while (*inputPosition != NULL) {
-        std::cout << *inputPosition;
-        ++inputPosition;
+/*
+ * DISCLAIMERS:
+ * File reading code was taken from here: http://stackoverflow.com/questions/18398167/how-to-copy-a-txt-file-to-a-char-array-in-c
+ * and from here: http://stackoverflow.com/questions/347949/how-to-convert-a-stdstring-to-const-char-or-char
+ *
+ * Additionally, some inspiration was taken from the sample project code provided
+ */
+
+int main(int argc, char* argv[]) {
+    RuMInterpreter interpreter;
+    if (argc == 2) {
+        // Pass the filename to the interpreter
+        try {
+            interpreter.fileMode(argv[1]);
+        }
+        catch (const char* e) {
+            std::cout << e << std::endl;
+        }
+        interpreter.interactiveMode();
     }
-    std::cout << std::endl;
+    else {
+        interpreter.interactiveMode();
+    }
     return 0;
 }
