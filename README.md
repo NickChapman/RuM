@@ -1,4 +1,4 @@
-To build this project use cmake with CMakeLists.txt
+To build this project use cmake and then make
 
 The generated executable will be called: Project2
 
