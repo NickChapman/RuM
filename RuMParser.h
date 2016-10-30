@@ -8,21 +8,31 @@
 
 #include <vector>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include "Token.h"
 
 class RuMParser {
     std::vector<Token>* tokenList;
     unsigned int tokenListPosition;
     std::string outputBuffer;
-    std::map<std::string, std::string> keywordParseMap;
-    std::map<std::string, std::string> operatorParseMap;
+    std::unordered_map<std::string, std::string> keywordParseMap;
+    std::unordered_map<std::string, std::string> operatorParseMap;
 
+    // TODO: Put these into their correct spots
     void parseArgList();
     void parseInvoke();
     void parseExpr();
 
+    void parseBool();
+    void parseBoolPrime();
+    void parseBoolTerm();
+
+    void parseMathExpr();
+    void parseMathExprPrime();
+    void parseTerm();
+    void parseTermPrime();
     void parseFactor();
+    void parseFactorPrime();
     void parseNeg();
 
     void parseList();

@@ -73,15 +73,15 @@ void RuMInterpreter::getNextNonWhitespace() {
     }
 }
 
-static bool RuMInterpreter::isWhiteSpace(char *character) {
+bool RuMInterpreter::isWhiteSpace(char *character) {
     return (*character == ' ' || *character == '\n' || *character == '\r' || *character == '\t');
 }
 
-static bool RuMInterpreter::isIdentifierCharacter(char *character) {
+bool RuMInterpreter::isIdentifierCharacter(char *character) {
     return (*character >= 'a' && *character <= 'z') || (*character >= 'A' && *character <= 'Z') || *character == '_';
 }
 
-static bool RuMInterpreter::isDigit(char *character) {
+bool RuMInterpreter::isDigit(char *character) {
     return *character >= '0' && *character <= '9';
 }
 
