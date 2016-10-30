@@ -9,21 +9,24 @@
 #include <iostream>
 #include <map>
 #include "Token.h"
+#include "RuMParser.h"
 
 class RuMInterpreter {
     // Interpreter Constants
-    const int MAX_INPUT_SIZE = 50000;
-    const int MAX_OUTPUT_SIZE = 50000;
-    const char *INTERPRETER_PROMPT_NEW = "RuM>";
-    const char *INTERPRETER_PROMPT_CONTINUED = ">>>";
-    bool isInteractiveMode = false;
+    static const int MAX_INPUT_SIZE = 50000;
+    static const int MAX_OUTPUT_SIZE = 50000;
+    static const char END_CHAR = '$';
+    const char *INTERPRETER_PROMPT_NEW;
+    const char *INTERPRETER_PROMPT_CONTINUED;
+    bool isInteractiveMode;
 
-    char *inputBuffer = new char[MAX_INPUT_SIZE];
-    char *currentCharacter = inputBuffer;
-    char *outputBuffer = new char[MAX_OUTPUT_SIZE];
-    char *outputPosition = outputBuffer;
+    char *inputBuffer;
+    char *currentCharacter;
+    char *outputBuffer;
+    char *outputPosition;
     std::vector<Token> tokenList;
-    int tokenListPosition = 0;
+    int tokenListPosition;
+    RuMParser parser;
 
     void tokenize();
 
@@ -31,16 +34,10 @@ class RuMInterpreter {
 
     void getNextNonWhitespace();
 
-    bool isWhiteSpace(char* character);
-
-    bool isIdentifierCharacter(char* character);
-
-    bool isDigit(char* character);
-
     void ignoreComment();
 
-
     bool numericLiteral();
+
 
     void stringLiteral();
 
@@ -53,18 +50,23 @@ class RuMInterpreter {
     bool identifier();
 
     std::map<std::string, std::string> keywordMap;
+
     std::map<std::string, std::string> operatorMap;
-
-
 public:
+
+
     RuMInterpreter();
+
+    static bool isWhiteSpace(char *character);
+
+    static bool isIdentifierCharacter(char *character);
+
+    static bool isDigit(char *character);
 
     // Interpreter Types
     void interactiveMode();
 
     void fileMode(char *filename);
-
-
 };
 
 #endif //PROJECT2_RUM_H

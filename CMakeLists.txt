@@ -3,5 +3,5 @@ project(RuM)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES main.cpp RuM.cpp RuM.h Token.cpp Token.h)
+set(SOURCE_FILES main.cpp RuM.cpp RuM.h Token.cpp Token.h RuMParser.cpp RuMParser.h)
 add_executable(rum ${SOURCE_FILES})

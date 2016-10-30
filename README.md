@@ -1,10 +1,10 @@
 To build this project use cmake and then make
 
-The generated executable will be called: Project2
+The generated executable will be called: rum
 
-To run it in file mode use: Project2 filename
+To run it in file mode use: rum filename
 
-To run it in interactive mode use: Project2
+To run it in interactive mode use: rum
 
 There is an included test file: test.rum
 

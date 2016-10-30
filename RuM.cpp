@@ -3,15 +3,29 @@
 //
 
 #include "RuM.h"
-#include <map>
 #include <fstream>
 
+#define NULL_CHAR '\0'
+
 RuMInterpreter::RuMInterpreter() {
+    // Setting constant values
+    this->INTERPRETER_PROMPT_NEW = "RuM>";
+    this->INTERPRETER_PROMPT_CONTINUED = ">>>";
+
+    // Initializing other interpreter values
+    this->isInteractiveMode = false;
+    inputBuffer = new char[MAX_INPUT_SIZE];
+    currentCharacter = inputBuffer;
+    outputBuffer = new char[MAX_OUTPUT_SIZE];
+    outputPosition = outputBuffer;
+    tokenListPosition = 0;
+
+    // We have to null out the buffers so they don't contain junk values
     for (int i = 0; i < MAX_INPUT_SIZE; ++i) {
-        inputBuffer[i] = NULL;
+        inputBuffer[i] = NULL_CHAR;
     }
     for (int i = 0; i < MAX_OUTPUT_SIZE; ++i) {
-        outputBuffer[i] = NULL;
+        outputBuffer[i] = NULL_CHAR;
     }
     // Fill in our keyword map
     keywordMap["if"] = "if_key";
@@ -48,6 +62,9 @@ RuMInterpreter::RuMInterpreter() {
     operatorMap["["] = "left_square_bracket";
     operatorMap["]"] = "right_square_bracket";
     operatorMap[","] = "comma";
+
+    // Finally we tie in our parser
+    this->parser = RuMParser(&tokenList);
 }
 
 void RuMInterpreter::getNextNonWhitespace() {
@@ -56,15 +73,15 @@ void RuMInterpreter::getNextNonWhitespace() {
     }
 }
 
-bool RuMInterpreter::isWhiteSpace(char *character) {
+static bool RuMInterpreter::isWhiteSpace(char *character) {
     return (*character == ' ' || *character == '\n' || *character == '\r' || *character == '\t');
 }
 
-bool RuMInterpreter::isIdentifierCharacter(char *character) {
+static bool RuMInterpreter::isIdentifierCharacter(char *character) {
     return (*character >= 'a' && *character <= 'z') || (*character >= 'A' && *character <= 'Z') || *character == '_';
 }
 
-bool RuMInterpreter::isDigit(char *character) {
+static bool RuMInterpreter::isDigit(char *character) {
     return *character >= '0' && *character <= '9';
 }
 
@@ -88,18 +105,18 @@ void RuMInterpreter::fillInputBuffer() {
         catch (std::exception e) {
             std::cout << "You have exceeded the input buffer size." << std::endl;
         }
-        while (*inputPosition != NULL) {
+        while (*inputPosition != NULL_CHAR) {
             ++inputPosition;
         }
         // We check to make sure that the input hasn't ended with a dollar sign
-        if (*(inputPosition - 1) == '$') {
+        if (*(inputPosition - 1) == this->END_CHAR) {
             endOfInputReached = true;
         }
         else {
             // Add in the \n that was missed by cin
             *inputPosition = '\n';
             ++inputPosition;
-            if(isInteractiveMode) {
+            if (isInteractiveMode) {
                 std::cout << INTERPRETER_PROMPT_CONTINUED << " " << std::flush;
             }
         }
@@ -122,8 +139,8 @@ void RuMInterpreter::tokenize() {
             }
             else if (identifier());
             else if (specialToken());
-            else if (*currentCharacter == '$') {
-                Token token("$", "endinput");
+            else if (*currentCharacter == END_CHAR) {
+                Token token(std::string(1, END_CHAR), "endinput");
                 this->tokenList.push_back(token);
                 ++currentCharacter;
                 endOfInputReached = true;
@@ -171,7 +188,7 @@ void RuMInterpreter::stringLiteral() {
     char stringDelimiter = *currentCharacter;
     tokenCharacters.push_back(*currentCharacter);
     ++currentCharacter;
-    while (*currentCharacter != stringDelimiter && *currentCharacter != NULL) {
+    while (*currentCharacter != stringDelimiter && *currentCharacter != NULL_CHAR) {
         // Allow for escaped " or ' in the string
         if (*currentCharacter == '\\' && (*(currentCharacter + 1) == '"' || *(currentCharacter + 1) == '\'')) {
             tokenCharacters.push_back(*currentCharacter);
@@ -180,8 +197,8 @@ void RuMInterpreter::stringLiteral() {
         tokenCharacters.push_back(*currentCharacter);
         ++currentCharacter;
     }
-    if (*currentCharacter == NULL) {
-        throw "End of line encountered inside string literal";
+    if (*currentCharacter == NULL_CHAR) {
+        throw "End of input encountered inside string literal";
     }
     tokenCharacters.push_back(*currentCharacter);
     ++currentCharacter;
@@ -190,7 +207,6 @@ void RuMInterpreter::stringLiteral() {
 }
 
 bool RuMInterpreter::specialToken() {
-    std::string tokenClass;
     std::string tokenCharacters;
 
     // First check to see if the first one or two characters are an operator
@@ -201,16 +217,16 @@ bool RuMInterpreter::specialToken() {
         tokenCharacters.push_back(*currentCharacter);
         ++currentCharacter;
     }
-    if(operatorToken(tokenCharacters)){
+    if (operatorToken(tokenCharacters)) {
         return true;
     }
-    else if(tokenCharacters == ";") {
+    else if (tokenCharacters == ";") {
         Token token(tokenCharacters, "semicolon");
         this->tokenList.push_back(token);
         return true;
     }
     tokenCharacters.push_back(*currentCharacter);
-    if(operatorToken(tokenCharacters)) {
+    if (operatorToken(tokenCharacters)) {
         return true;
     }
     // It wasn't a special character so we will need to back up to undo the move forward that we made
@@ -235,11 +251,11 @@ bool RuMInterpreter::identifier() {
         tokenCharacters.push_back(*currentCharacter);
         ++currentCharacter;
     }
-    if (tokenCharacters.size() == 0){
+    if (tokenCharacters.size() == 0) {
         return false;
     }
     // First check to see if it's a keyword
-    if(keywordToken(tokenCharacters)) {
+    if (keywordToken(tokenCharacters)) {
         return true;
     }
     else {
@@ -265,19 +281,19 @@ void RuMInterpreter::interactiveMode() {
     bool continueInterpreting = true;
     std::cout << "Welcome to the RuM interpreter!" << std::endl;
     std::cout << "You may enter any series of RuM commands here." << std::endl;
-    std::cout << "It will run when the last character is a '$'" << std::endl;
-    std::cout << "'exit$' to quit" << std::endl;
+    std::cout << "It will run when the last character is a '" << this->END_CHAR << "'" << std::endl;
+    std::cout << "'exit" << END_CHAR << "' to quit" << std::endl;
     while (continueInterpreting) {
         try {
             // Zeroing and resetting to make sure every run is clean.
             for (int i = 0; i < MAX_INPUT_SIZE; ++i) {
-                inputBuffer[i] = NULL;
+                inputBuffer[i] = NULL_CHAR;
             }
             currentCharacter = inputBuffer;
             std::cout << INTERPRETER_PROMPT_NEW << " " << std::flush;
             fillInputBuffer();
             tokenize();
-            for (tokenListPosition; tokenListPosition < tokenList.size(); ++tokenListPosition) {
+            for (; tokenListPosition < tokenList.size(); ++tokenListPosition) {
                 std::cout << "Token encountered: " << tokenList[tokenListPosition].getLexeme();
                 std::cout << " . Category: " << tokenList[tokenListPosition].getTokenType() << std::endl;
             }
@@ -288,7 +304,7 @@ void RuMInterpreter::interactiveMode() {
                 break;
             }
         }
-        catch (const char* e) {
+        catch (const char *e) {
             std::cout << e << std::endl;
         }
 
@@ -299,22 +315,22 @@ void RuMInterpreter::fileMode(char *filename) {
     std::ifstream in(filename);
     std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     std::copy(contents.begin(), contents.end(), inputBuffer);
-    char* inputPosition = inputBuffer;
-    while(*inputPosition != NULL) {
+    char *inputPosition = inputBuffer;
+    while (*inputPosition != NULL_CHAR) {
         ++inputPosition;
     }
     --inputPosition;
-    while(isWhiteSpace(inputPosition)) {
+    while (isWhiteSpace(inputPosition)) {
         --inputPosition;
     }
-    if (*inputPosition != '$') {
+    if (*inputPosition != END_CHAR) {
         std::cout << inputBuffer << std::endl;
-        std::cout << "A RuM file must end with a '$'." << std::endl;
+        std::cout << "A RuM file must end with a '" << END_CHAR << "'." << std::endl;
         return;
     }
     else {
         tokenize();
-        for (tokenListPosition; tokenListPosition < tokenList.size(); ++tokenListPosition) {
+        for (; tokenListPosition < tokenList.size(); ++tokenListPosition) {
             std::cout << "Token encountered: " << tokenList[tokenListPosition].getLexeme();
             std::cout << " . Category: " << tokenList[tokenListPosition].getTokenType() << std::endl;
         }

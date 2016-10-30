@@ -19,10 +19,7 @@ int main(int argc, char* argv[]) {
         catch (const char* e) {
             std::cout << e << std::endl;
         }
-        interpreter.interactiveMode();
     }
-    else {
-        interpreter.interactiveMode();
-    }
+    interpreter.interactiveMode();
     return 0;
 }
