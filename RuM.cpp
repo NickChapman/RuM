@@ -29,9 +29,11 @@ RuMInterpreter::RuMInterpreter() {
     }
     // Fill in our keyword map
     keywordMap["if"] = "if_key";
+    keywordMap["else"] = "else_key";
     keywordMap["endif"] = "endif_key";
     keywordMap["while"] = "while_key";
     keywordMap["endwhile"] = "endwhile_key";
+    keywordMap["new"] = "new_key";
     keywordMap["classdef"] = "classdef_key";
     keywordMap["inherits"] = "inherits_key";
     keywordMap["from"] = "from_key";
@@ -73,15 +75,15 @@ void RuMInterpreter::getNextNonWhitespace() {
     }
 }
 
-static bool RuMInterpreter::isWhiteSpace(char *character) {
+bool RuMInterpreter::isWhiteSpace(char *character) {
     return (*character == ' ' || *character == '\n' || *character == '\r' || *character == '\t');
 }
 
-static bool RuMInterpreter::isIdentifierCharacter(char *character) {
+bool RuMInterpreter::isIdentifierCharacter(char *character) {
     return (*character >= 'a' && *character <= 'z') || (*character >= 'A' && *character <= 'Z') || *character == '_';
 }
 
-static bool RuMInterpreter::isDigit(char *character) {
+bool RuMInterpreter::isDigit(char *character) {
     return *character >= '0' && *character <= '9';
 }
 
@@ -289,6 +291,8 @@ void RuMInterpreter::interactiveMode() {
             for (int i = 0; i < MAX_INPUT_SIZE; ++i) {
                 inputBuffer[i] = NULL_CHAR;
             }
+            // Empty out the token list
+            tokenList = std::vector<Token>();
             currentCharacter = inputBuffer;
             std::cout << INTERPRETER_PROMPT_NEW << " " << std::flush;
             fillInputBuffer();
@@ -298,6 +302,8 @@ void RuMInterpreter::interactiveMode() {
                 std::cout << " . Category: " << tokenList[tokenListPosition].getTokenType() << std::endl;
             }
             currentCharacter = inputBuffer;
+            // Parse the input
+            parse();
             // Check to see if they have asked to exit
             if (tokenList.at(tokenList.size() - 2).getTokenType() == "exit_token") {
                 std::cout << "Goodbye!" << std::endl;
@@ -334,6 +340,21 @@ void RuMInterpreter::fileMode(char *filename) {
             std::cout << "Token encountered: " << tokenList[tokenListPosition].getLexeme();
             std::cout << " . Category: " << tokenList[tokenListPosition].getTokenType() << std::endl;
         }
+        parse();
+    }
+}
+
+void RuMInterpreter::parse() {
+    try {
+        this->parser.parseProgram();
+    }
+    catch (char* e) {
+        std::cout << e << std::endl;
+        parser.reset();
+    }
+    catch(std::string e) {
+        std::cout << e << std::endl;
+        parser.reset();
     }
 }
 

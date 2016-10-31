@@ -7,14 +7,14 @@ else
 	y = 10;
 endif
 x="hello world";
-fundef z=yay(x, y, 10, "hey", 'hey')
+fundef z=yay(x, y)
 	stuff
 endfun
 while(sadf)
 stuff
 endwhile
 classdef x inherits from y
-	x.things_it_has;
+	x=things_it_has;
 endclass
 .12
 0.12

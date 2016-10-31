@@ -8,24 +8,52 @@
 
 #include <vector>
 #include <string>
-#include <map>
+#include <unordered_map>
 #include "Token.h"
 
 class RuMParser {
     std::vector<Token>* tokenList;
     unsigned int tokenListPosition;
     std::string outputBuffer;
-    std::map<std::string, std::string> keywordParseMap;
-    std::map<std::string, std::string> operatorParseMap;
+    std::unordered_map<std::string, std::string> keywordParseMap;
+    std::unordered_map<std::string, std::string> operatorParseMap;
 
-    void parseArgList();
+    // Helper functions
+    std::string currentTokenType();
+
+    void parseStmtList();
+    void parseStmt();
+    void parseAssign();
+
+    void parseFunc();
     void parseInvoke();
+    void parseArgList();
+    void parseArg();
+    void parseRef();
+    void parseAnonClass();
+    void parseClass();
+
+    void parseClassBlock();
+    void parseClassItem();
+    void parseClassAccess();
+    void parseClassAccessPrime();
+    void parseWhile();
+
+    void parseIfStmt();
     void parseExpr();
+    void parseBool();
+    void parseBoolPrime();
+    void parseBoolTerm();
+    void parseMathExpr();
 
+    void parseMathExprPrime();
+    void parseTerm();
+    void parseTermPrime();
     void parseFactor();
+    void parseFactorPrime();
     void parseNeg();
-
     void parseList();
+
     void parseVar();
     void parseIdentifier();
     void parseString();
@@ -34,10 +62,13 @@ class RuMParser {
     void parseFloat();
     void parseKeyword();
     void parseOperator();
-
 public:
+
     RuMParser();
     RuMParser(std::vector<Token>* tokenList);
+    void setTokenList(std::vector<Token>* tokenList);
+    void parseProgram();
+    void reset();
 };
 
 

@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include "Token.h"
 #include "RuMParser.h"
 
@@ -30,6 +30,8 @@ class RuMInterpreter {
 
     void tokenize();
 
+    void parse();
+
     void fillInputBuffer();
 
     void getNextNonWhitespace();
@@ -49,9 +51,9 @@ class RuMInterpreter {
 
     bool identifier();
 
-    std::map<std::string, std::string> keywordMap;
+    std::unordered_map<std::string, std::string> keywordMap;
 
-    std::map<std::string, std::string> operatorMap;
+    std::unordered_map<std::string, std::string> operatorMap;
 public:
 
 
