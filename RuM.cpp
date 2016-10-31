@@ -29,6 +29,7 @@ RuMInterpreter::RuMInterpreter() {
     }
     // Fill in our keyword map
     keywordMap["if"] = "if_key";
+    keywordMap["else"] = "else_key";
     keywordMap["endif"] = "endif_key";
     keywordMap["while"] = "while_key";
     keywordMap["endwhile"] = "endwhile_key";

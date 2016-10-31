@@ -16,6 +16,7 @@ RuMParser::RuMParser(std::vector<Token> *tokenList) {
 
     // Build our keyword parsing map
     keywordParseMap["if_key"] = "[keyword if]";
+    keywordParseMap["else_key"] = "[keyword else]";
     keywordParseMap["endif_key"] = "[keyword endif]";
     keywordParseMap["while_key"] = "[keyword while]";
     keywordParseMap["endwhile_key"] = "[keyword endwhile]";
@@ -73,13 +74,15 @@ void RuMParser::parseProgram() {
     outputBuffer += "[PROGRAM ";
     parseStmtList();
     outputBuffer += "]";
+    std::cout << "CONSTRUCTED PARSE TREE:" << std::endl;
     std::cout << outputBuffer << std::endl;
     reset();
 }
 
 void RuMParser::parseStmtList() {
-    outputBuffer += "[STMT_LIST ";
-    while (currentTokenType() != "endif_key" && currentTokenType() != "endwhile_key" &&
+    outputBuffer += "[STMT-LIST ";
+    while (currentTokenType() != "else_key" && currentTokenType() != "endif_key" &&
+           currentTokenType() != "endwhile_key" &&
            currentTokenType() != "endfunction_key" &&
            currentTokenType() != "endinput") {
         parseStmt();
@@ -220,7 +223,7 @@ void RuMParser::parseInvoke() {
 }
 
 void RuMParser::parseArgList() {
-    outputBuffer += "[ARG_LIST ";
+    outputBuffer += "[ARG-LIST ";
     parseArg();
     while (currentTokenType() == "comma") {
         parseOperator();
@@ -259,7 +262,7 @@ void RuMParser::parseRef() {
 }
 
 void RuMParser::parseAnonClass() {
-    outputBuffer += "[ANON_CLASS";
+    outputBuffer += "[ANON-CLASS";
     if (currentTokenType() == "new_key") {
         parseKeyword();
         if (currentTokenType() == "open_paren") {
@@ -326,7 +329,7 @@ void RuMParser::parseClass() {
 }
 
 void RuMParser::parseClassBlock() {
-    outputBuffer += "[CLASS_BLOCK ";
+    outputBuffer += "[CLASS-BLOCK ";
     while (currentTokenType() != "endclass_key") {
         // We are not done with the class items
         parseClassItem();
@@ -335,7 +338,7 @@ void RuMParser::parseClassBlock() {
 }
 
 void RuMParser::parseClassItem() {
-    outputBuffer += "[CLASS_ITEM ";
+    outputBuffer += "[CLASS-ITEM ";
     if (currentTokenType() == "function_key") {
         // It is a function definition
         parseFunc();
@@ -349,7 +352,7 @@ void RuMParser::parseClassItem() {
 
 
 void RuMParser::parseClassAccess() {
-    outputBuffer += "[CLASS_ACCESS ";
+    outputBuffer += "[CLASS-ACCESS ";
     if (currentTokenType() == "identifier") {
         parseVar();
         parseClassAccessPrime();
@@ -362,7 +365,7 @@ void RuMParser::parseClassAccess() {
 
 void RuMParser::parseClassAccessPrime() {
     while (currentTokenType() == "dop_op") {
-        outputBuffer += "[CLASS_ACCESS' ";
+        outputBuffer += "[CLASS-ACCESS' ";
         parseOperator();
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
             // In this case it is a function invocation
@@ -409,7 +412,7 @@ void RuMParser::parseWhile() {
 
 void RuMParser::parseIfStmt() {
     if (currentTokenType() == "if_key") {
-        outputBuffer += "[IF_STMT ";
+        outputBuffer += "[IF-STMT ";
         parseKeyword();
         if (currentTokenType() == "open_paren") {
             parseOperator();
@@ -478,7 +481,7 @@ void RuMParser::parseBoolPrime() {
 }
 
 void RuMParser::parseBoolTerm() {
-    outputBuffer += "[BOOL_TERM ";
+    outputBuffer += "[BOOL-TERM ";
     if (currentTokenType() == "true_key" ||
         currentTokenType() == "false_key" ||
         currentTokenType() == "null_key") {
@@ -494,7 +497,7 @@ void RuMParser::parseBoolTerm() {
 }
 
 void RuMParser::parseMathExpr() {
-    outputBuffer += "[MATH_EXPR ";
+    outputBuffer += "[MATH-EXPR ";
     parseTerm();
     parseMathExprPrime();
     outputBuffer += "]";
@@ -504,7 +507,7 @@ void RuMParser::parseMathExprPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
     if (currentTokenType() == "plus_op" ||
         currentTokenType() == "negative_op") {
-        outputBuffer += "[MATH_EXPR' ";
+        outputBuffer += "[MATH-EXPR' ";
         parseOperator();
         parseTerm();
         outputBuffer += "]";
@@ -583,7 +586,7 @@ void RuMParser::parseNeg() {
         }
     }
     else {
-        throw "Expected a number, or negative number, or variable, or function call, or () but instead received '"
+        throw "Expected a number, or negative number, or variable, or function call, or '(' but instead received '"
               + currentToken->getTokenType() + "'.";
     }
     outputBuffer += "]";
