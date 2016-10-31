@@ -19,10 +19,12 @@ class RuMParser {
     std::unordered_map<std::string, std::string> operatorParseMap;
 
     // TODO: Put these into their correct spots
+    void parseStmtList();
     void parseArgList();
     void parseInvoke();
-    void parseExpr();
 
+    void parseIfStmt();
+    void parseExpr();
     void parseBool();
     void parseBoolPrime();
     void parseBoolTerm();

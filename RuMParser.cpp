@@ -52,6 +52,58 @@ RuMParser::RuMParser(std::vector<Token> *tokenList) {
 }
 
 
+void RuMParser::parseIfStmt() {
+    // if(<EXPR>) <STMT_LIST> endif | if(<EXPR>) <STMT_LIST> else <STMT_LIST> endif
+    if (tokenList->at(tokenListPosition).getTokenType() == "if_key") {
+        outputBuffer += "[IF_STMT ";
+        parseKeyword();
+        if (tokenList->at(tokenListPosition).getTokenType() == "open_paren") {
+            parseOperator();
+            parseExpr();
+            // Check to make sure there is a closing paren
+            if (tokenList->at(tokenListPosition).getTokenType() == "close_paren") {
+                parseOperator();
+                parseStmtList();
+                // Check to see if we finished on an else key
+                if (tokenList->at(tokenListPosition).getTokenType() == "else_key") {
+                    parseKeyword();
+                    parseStmtList();
+                }
+                // Now make sure that there is an endif
+                if (tokenList->at(tokenListPosition).getTokenType() == "endif_key") {
+                    parseKeyword();
+                    outputBuffer += "]";
+                }
+                else {
+                    throw "Expected `endif_key` but instead received '" +
+                          tokenList->at(tokenListPosition).getTokenType() + "'.";
+                }
+            }
+            else {
+                throw "Expected a ')' but instead received '" + tokenList->at(tokenListPosition).getTokenType() + "'.";
+            }
+        }
+        else {
+            throw "Expected a '(' but instead received '" + tokenList->at(tokenListPosition).getTokenType() + "'.";
+        }
+    }
+    else {
+        throw "Expected 'if' but instead received '" + tokenList->at(tokenListPosition).getTokenType() + "'.";
+    }
+}
+
+void RuMParser::parseExpr() {
+    outputBuffer += "[EXPR ";
+    if (tokenList->at(tokenListPosition).getTokenType() == "bool_not") {
+        parseOperator();
+        parseExpr();
+    }
+    else {
+        parseBool();
+    }
+    outputBuffer += "]";
+}
+
 void RuMParser::parseBool() {
     outputBuffer += "[BOOL ";
     parseBoolTerm();
@@ -215,6 +267,7 @@ void RuMParser::parseIdentifier() {
     }
 }
 
+
 void RuMParser::parseString() {
     Token *currentToken = &(tokenList->at(tokenListPosition));
     if (currentToken->getTokenType() == "string") {
@@ -242,7 +295,6 @@ void RuMParser::parseNum() {
         throw "Expected a 'float' or an 'int' but instead received '" + currentToken->getTokenType() + "'.";
     }
 }
-
 
 void RuMParser::parseInt() {
     Token *currentToken = &(tokenList->at(tokenListPosition));
@@ -298,6 +350,6 @@ void RuMParser::parseInvoke() {
 
 }
 
-void RuMParser::parseExpr() {
+void RuMParser::parseStmtList() {
 
 }
