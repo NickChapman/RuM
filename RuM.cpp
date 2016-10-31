@@ -290,6 +290,8 @@ void RuMInterpreter::interactiveMode() {
             for (int i = 0; i < MAX_INPUT_SIZE; ++i) {
                 inputBuffer[i] = NULL_CHAR;
             }
+            // Empty out the token list
+            tokenList = std::vector<Token>();
             currentCharacter = inputBuffer;
             std::cout << INTERPRETER_PROMPT_NEW << " " << std::flush;
             fillInputBuffer();
@@ -299,6 +301,8 @@ void RuMInterpreter::interactiveMode() {
                 std::cout << " . Category: " << tokenList[tokenListPosition].getTokenType() << std::endl;
             }
             currentCharacter = inputBuffer;
+            // Parse the input
+            parse();
             // Check to see if they have asked to exit
             if (tokenList.at(tokenList.size() - 2).getTokenType() == "exit_token") {
                 std::cout << "Goodbye!" << std::endl;
@@ -335,6 +339,21 @@ void RuMInterpreter::fileMode(char *filename) {
             std::cout << "Token encountered: " << tokenList[tokenListPosition].getLexeme();
             std::cout << " . Category: " << tokenList[tokenListPosition].getTokenType() << std::endl;
         }
+        parse();
+    }
+}
+
+void RuMInterpreter::parse() {
+    try {
+        this->parser.parseProgram();
+    }
+    catch (char* e) {
+        std::cout << e << std::endl;
+        parser.reset();
+    }
+    catch(std::string e) {
+        std::cout << e << std::endl;
+        parser.reset();
     }
 }
 

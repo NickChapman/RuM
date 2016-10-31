@@ -7,7 +7,7 @@ else
 	y = 10;
 endif
 x="hello world";
-fundef z=yay(x, y, 10, "hey", 'hey')
+fundef z=yay(x, y)
 	stuff
 endfun
 while(sadf)

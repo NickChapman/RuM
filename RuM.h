@@ -30,6 +30,8 @@ class RuMInterpreter {
 
     void tokenize();
 
+    void parse();
+
     void fillInputBuffer();
 
     void getNextNonWhitespace();

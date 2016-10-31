@@ -21,40 +21,39 @@ class RuMParser {
     // Helper functions
     std::string currentTokenType();
 
-    // TODO: Put these into their correct spots
     void parseStmtList();
-    void parseInvoke();
-    void parseFunc();
+    void parseStmt();
     void parseAssign();
 
-
+    void parseFunc();
+    void parseInvoke();
     void parseArgList();
     void parseArg();
     void parseRef();
     void parseAnonClass();
-
     void parseClass();
+
     void parseClassBlock();
     void parseClassItem();
     void parseClassAccess();
     void parseClassAccessPrime();
-
     void parseWhile();
+
     void parseIfStmt();
     void parseExpr();
     void parseBool();
     void parseBoolPrime();
     void parseBoolTerm();
-
     void parseMathExpr();
+
     void parseMathExprPrime();
     void parseTerm();
     void parseTermPrime();
     void parseFactor();
     void parseFactorPrime();
     void parseNeg();
-
     void parseList();
+
     void parseVar();
     void parseIdentifier();
     void parseString();
@@ -63,10 +62,13 @@ class RuMParser {
     void parseFloat();
     void parseKeyword();
     void parseOperator();
-
 public:
+
     RuMParser();
     RuMParser(std::vector<Token>* tokenList);
+    void setTokenList(std::vector<Token>* tokenList);
+    void parseProgram();
+    void reset();
 };
 
 
