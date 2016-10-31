@@ -18,11 +18,28 @@ class RuMParser {
     std::unordered_map<std::string, std::string> keywordParseMap;
     std::unordered_map<std::string, std::string> operatorParseMap;
 
+    // Helper functions
+    std::string currentTokenType();
+
     // TODO: Put these into their correct spots
     void parseStmtList();
-    void parseArgList();
     void parseInvoke();
+    void parseFunc();
+    void parseAssign();
 
+
+    void parseArgList();
+    void parseArg();
+    void parseRef();
+    void parseAnonClass();
+
+    void parseClass();
+    void parseClassBlock();
+    void parseClassItem();
+    void parseClassAccess();
+    void parseClassAccessPrime();
+
+    void parseWhile();
     void parseIfStmt();
     void parseExpr();
     void parseBool();

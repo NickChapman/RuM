@@ -32,6 +32,7 @@ RuMInterpreter::RuMInterpreter() {
     keywordMap["endif"] = "endif_key";
     keywordMap["while"] = "while_key";
     keywordMap["endwhile"] = "endwhile_key";
+    keywordMap["new"] = "new_key";
     keywordMap["classdef"] = "classdef_key";
     keywordMap["inherits"] = "inherits_key";
     keywordMap["from"] = "from_key";

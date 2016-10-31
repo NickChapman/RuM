@@ -5,6 +5,10 @@
 #include "RuMParser.h"
 #include "RuM.h"
 
+std::string RuMParser::currentTokenType() {
+    return tokenList->at(tokenListPosition).getTokenType();
+}
+
 // We don't actually do anything in this case
 // We need a token list in order to do anything
 RuMParser::RuMParser() {}
@@ -19,6 +23,7 @@ RuMParser::RuMParser(std::vector<Token> *tokenList) {
     keywordParseMap["endif_key"] = "[keyword endif]";
     keywordParseMap["while_key"] = "[keyword while]";
     keywordParseMap["endwhile_key"] = "[keyword endwhile]";
+    keywordParseMap["new_key"] = "[keyword new]";
     keywordParseMap["classdef_key"] = "[keyword classdef]";
     keywordParseMap["inherits_key"] = "[keyword inherits]";
     keywordParseMap["from_key"] = "[keyword from]";
@@ -49,52 +54,265 @@ RuMParser::RuMParser(std::vector<Token> *tokenList) {
     operatorParseMap["left_square_bracket"] = "[operator '[']";
     operatorParseMap["right_square_bracket"] = "[operator ']']";
     operatorParseMap["comma"] = "[operator ',']";
+    operatorParseMap["dot_op"] = "[operator '.']";
 }
 
+void RuMParser::parseFunc() {
 
-void RuMParser::parseIfStmt() {
-    // if(<EXPR>) <STMT_LIST> endif | if(<EXPR>) <STMT_LIST> else <STMT_LIST> endif
-    if (tokenList->at(tokenListPosition).getTokenType() == "if_key") {
-        outputBuffer += "[IF_STMT ";
+}
+
+void RuMParser::parseInvoke() {
+    outputBuffer += "[INVOKE ";
+    if(currentTokenType() == "identifier") {
+        parseIdentifier();
+        if(currentTokenType() == "open_paren") {
+            parseOperator();
+            parseArgList();
+            if (currentTokenType() == "close_paren") {
+                parseOperator();
+            }
+            else {
+                throw "Expected ')' but instead received '" + currentTokenType() + "'.";
+            }
+        }
+        else {
+            throw "Expected '(' but instead received '" + currentTokenType() + "'.";
+        }
+    }
+    else {
+        throw "Expected 'identifier' but instead received '" + currentTokenType() +"'.";
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseArgList() {
+    outputBuffer += "[ARG_LIST ";
+    parseArg();
+    while(currentTokenType() == "comma") {
+        parseOperator();
+        parseArg();
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseArg() {
+    outputBuffer += "[ARG ";
+    if (currentTokenType() == "reference_op") {
+        parseRef();
+    }
+    else if (currentTokenType() == "left_square_bracket") {
+        parseList();
+    }
+    else if (currentTokenType() == "new_key") {
+        parseAnonClass();
+    }
+    else {
+        parseExpr();
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseRef() {
+    outputBuffer += "[REF ";
+    if (currentTokenType() == "reference_op") {
+        parseOperator();
+        parseVar();
+    }
+    else {
+        throw "Expected '&' but instead received '" + currentTokenType() + "'.";
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseAnonClass() {
+    outputBuffer += "[ANON_CLASS";
+    if (currentTokenType() == "new_key") {
         parseKeyword();
-        if (tokenList->at(tokenListPosition).getTokenType() == "open_paren") {
+        if (currentTokenType() == "open_paren") {
+            parseOperator();
+            if (currentTokenType() == "string") {
+                parseString();
+                if (currentTokenType() == "close_paren") {
+                    parseOperator();
+                    outputBuffer += "]";
+                }
+                else {
+                    throw "Expected ')' but instead received '" + currentTokenType() + "'.";
+                }
+            }
+            else {
+                throw "Expected 'string' but instead received '" + currentTokenType() + "'.";
+            }
+        }
+        else {
+            throw "Expected '(' but instead received '" + currentTokenType() + "'.";
+        }
+    }
+    else {
+        throw "Expected 'new' but instead received '" + currentTokenType() + "'.";
+    }
+}
+
+void RuMParser::parseClass() {
+    outputBuffer += "[CLASS ";
+    if (currentTokenType() == "classdef_key") {
+        parseKeyword();
+        if (currentTokenType() == "identifier") {
+            parseIdentifier();
+            // Now we need to figure out if it inherits from anything
+            if (currentTokenType() == "inherits_key") {
+                parseKeyword();
+                // There should now be a from keyword
+                if (currentTokenType() == "from_key") {
+                    parseKeyword();
+                    parseIdentifier();
+                }
+                else {
+                    throw "Expected 'from' but instead received '" + currentTokenType() + "'.";
+                }
+            }
+            // Now regardless we have the class block
+            parseClassBlock();
+            // Now we should be on the endclass keyword
+            if (currentTokenType() == "endclass_key") {
+                parseKeyword();
+            }
+            else {
+                throw "Expected 'endclass' but instead received '" + currentTokenType() + "'.";
+            }
+        }
+        else {
+            throw "Expected 'identifier' but instead received '" + currentTokenType() + "'.";
+        }
+    }
+    else {
+        throw "Expected 'classdef' but instead received '" + currentTokenType() + "'.";
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseClassBlock() {
+    outputBuffer += "[CLASS_BLOCK ";
+    while (currentTokenType() != "endclass_key") {
+        // We are not done with the class items
+        parseClassItem();
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseClassItem() {
+    outputBuffer += "[CLASS_ITEM ";
+    if (currentTokenType() == "function_key") {
+        // It is a function definition
+        parseFunc();
+    }
+    else {
+        // Otherwise it has to be an assignment
+        parseAssign();
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseClassAccess() {
+    outputBuffer += "[CLASS_ACCESS ";
+    if (currentTokenType() == "identifier") {
+        parseVar();
+        parseClassAccessPrime();
+    }
+    else {
+        throw "Expected 'identifier' but instead recieved '" + currentTokenType() + "'.";
+    }
+    outputBuffer += "]";
+}
+
+void RuMParser::parseClassAccessPrime() {
+    while (currentTokenType() == "dop_op") {
+        outputBuffer += "[CLASS_ACCESS' ";
+        parseOperator();
+        if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
+            // In this case it is a function invocation
+            parseInvoke();
+        }
+        else {
+            // Just a normal variable access
+            parseVar();
+        }
+        outputBuffer += "]";
+    }
+}
+
+void RuMParser::parseWhile() {
+    if (currentTokenType() == "while_key") {
+        outputBuffer += "[WHILE ";
+        parseKeyword();
+        if (currentTokenType() == "open_paren") {
             parseOperator();
             parseExpr();
-            // Check to make sure there is a closing paren
-            if (tokenList->at(tokenListPosition).getTokenType() == "close_paren") {
+            if (currentTokenType() == "close_paren") {
                 parseOperator();
                 parseStmtList();
-                // Check to see if we finished on an else key
-                if (tokenList->at(tokenListPosition).getTokenType() == "else_key") {
-                    parseKeyword();
-                    parseStmtList();
-                }
-                // Now make sure that there is an endif
-                if (tokenList->at(tokenListPosition).getTokenType() == "endif_key") {
+                if (currentTokenType() == "endwhile_key") {
                     parseKeyword();
                     outputBuffer += "]";
                 }
                 else {
-                    throw "Expected `endif_key` but instead received '" +
-                          tokenList->at(tokenListPosition).getTokenType() + "'.";
+                    throw "Expected 'endwhile' but instead received '" + currentTokenType() + "'.";
                 }
             }
             else {
-                throw "Expected a ')' but instead received '" + tokenList->at(tokenListPosition).getTokenType() + "'.";
+                throw "Expected ')' but instead received '" + currentTokenType() + "'.";
             }
         }
         else {
-            throw "Expected a '(' but instead received '" + tokenList->at(tokenListPosition).getTokenType() + "'.";
+            throw "Expected '(' but instead received '" + currentTokenType() + "'.";
         }
     }
     else {
-        throw "Expected 'if' but instead received '" + tokenList->at(tokenListPosition).getTokenType() + "'.";
+        throw "Expected 'while' but instead received '" + currentTokenType() + "'.";
+    }
+}
+
+void RuMParser::parseIfStmt() {
+    if (currentTokenType() == "if_key") {
+        outputBuffer += "[IF_STMT ";
+        parseKeyword();
+        if (currentTokenType() == "open_paren") {
+            parseOperator();
+            parseExpr();
+            // Check to make sure there is a closing paren
+            if (currentTokenType() == "close_paren") {
+                parseOperator();
+                parseStmtList();
+                // Check to see if we finished on an else key
+                if (currentTokenType() == "else_key") {
+                    parseKeyword();
+                    parseStmtList();
+                }
+                // Now make sure that there is an endif
+                if (currentTokenType() == "endif_key") {
+                    parseKeyword();
+                    outputBuffer += "]";
+                }
+                else {
+                    throw "Expected `endif_key` but instead received '" + currentTokenType() + "'.";
+                }
+            }
+            else {
+                throw "Expected a ')' but instead received '" + currentTokenType() + "'.";
+            }
+        }
+        else {
+            throw "Expected a '(' but instead received '" + currentTokenType() + "'.";
+        }
+    }
+    else {
+        throw "Expected 'if' but instead received '" + currentTokenType() + "'.";
     }
 }
 
 void RuMParser::parseExpr() {
     outputBuffer += "[EXPR ";
-    if (tokenList->at(tokenListPosition).getTokenType() == "bool_not") {
+    if (currentTokenType() == "bool_not") {
         parseOperator();
         parseExpr();
     }
@@ -111,12 +329,13 @@ void RuMParser::parseBool() {
     outputBuffer += "]";
 }
 
+
 void RuMParser::parseBoolPrime() {
-    while (tokenList->at(tokenListPosition).getTokenType() == "bool_equals" ||
-           tokenList->at(tokenListPosition).getTokenType() == "bool_lessthan" ||
-           tokenList->at(tokenListPosition).getTokenType() == "bool_greaterthan" ||
-           tokenList->at(tokenListPosition).getTokenType() == "bool_and" ||
-           tokenList->at(tokenListPosition).getTokenType() == "bool_or") {
+    while (currentTokenType() == "bool_equals" ||
+           currentTokenType() == "bool_lessthan" ||
+           currentTokenType() == "bool_greaterthan" ||
+           currentTokenType() == "bool_and" ||
+           currentTokenType() == "bool_or") {
         outputBuffer += "[BOOL' ";
         parseOperator();
         parseBoolTerm();
@@ -126,10 +345,13 @@ void RuMParser::parseBoolPrime() {
 
 void RuMParser::parseBoolTerm() {
     outputBuffer += "[BOOL_TERM ";
-    if (tokenList->at(tokenListPosition).getTokenType() == "true_key" ||
-        tokenList->at(tokenListPosition).getTokenType() == "false_key" ||
-        tokenList->at(tokenListPosition).getTokenType() == "null_key") {
+    if (currentTokenType() == "true_key" ||
+        currentTokenType() == "false_key" ||
+        currentTokenType() == "null_key") {
         parseKeyword();
+    }
+    else if (currentTokenType() == "string") {
+        parseString();
     }
     else {
         parseMathExpr();
@@ -146,8 +368,8 @@ void RuMParser::parseMathExpr() {
 
 void RuMParser::parseMathExprPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
-    if (tokenList->at(tokenListPosition).getTokenType() == "plus_op" ||
-        tokenList->at(tokenListPosition).getTokenType() == "negative_op") {
+    if (currentTokenType() == "plus_op" ||
+        currentTokenType() == "negative_op") {
         outputBuffer += "[MATH_EXPR' ";
         parseOperator();
         parseTerm();
@@ -164,8 +386,8 @@ void RuMParser::parseTerm() {
 
 void RuMParser::parseTermPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
-    if (tokenList->at(tokenListPosition).getTokenType() == "mult_op" ||
-        tokenList->at(tokenListPosition).getTokenType() == "div_op") {
+    if (currentTokenType() == "mult_op" ||
+        currentTokenType() == "div_op") {
         outputBuffer += "[TERM' ";
         parseOperator();
         parseFactor();
@@ -182,7 +404,7 @@ void RuMParser::parseFactor() {
 
 void RuMParser::parseFactorPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for exponentiation
-    while (tokenList->at(tokenListPosition).getTokenType() == "exponent_op") {
+    while (currentTokenType() == "exponent_op") {
         outputBuffer += "[FACTOR' ";
         parseOperator();
         parseNeg();
@@ -198,6 +420,9 @@ void RuMParser::parseNeg() {
         // If the next token is a '(' it's a function invocation
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
             parseInvoke();
+        }
+        else if (tokenList->at(tokenListPosition + 1).getTokenType() == "dot_op") {
+            parseClassAccess();
         }
         else {
             parseVar();
@@ -216,7 +441,7 @@ void RuMParser::parseNeg() {
         parseOperator();
         parseExpr();
         // After parsing the expression we should now be on a ')'
-        if (tokenList->at(tokenListPosition).getTokenType() == "close_paren") {
+        if (currentTokenType() == "close_paren") {
             parseOperator();
         }
         else {
@@ -266,7 +491,6 @@ void RuMParser::parseIdentifier() {
         throw "Expected an 'identifier' but instead received '" + currentToken->getTokenType() + "'.";
     }
 }
-
 
 void RuMParser::parseString() {
     Token *currentToken = &(tokenList->at(tokenListPosition));
@@ -342,14 +566,10 @@ void RuMParser::parseOperator() {
 
 // TODO
 
-void RuMParser::parseArgList() {
-
-}
-
-void RuMParser::parseInvoke() {
-
-}
-
 void RuMParser::parseStmtList() {
+
+}
+
+void RuMParser::parseAssign() {
 
 }
