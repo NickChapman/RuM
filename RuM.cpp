@@ -148,7 +148,7 @@ void RuMInterpreter::tokenize() {
                 endOfInputReached = true;
             }
             else {
-                throw "An invalid token was encountered";
+                throw std::runtime_error("An invalid token was encountered");
             }
         }
     }
@@ -200,7 +200,7 @@ void RuMInterpreter::stringLiteral() {
         ++currentCharacter;
     }
     if (*currentCharacter == NULL_CHAR) {
-        throw "End of input encountered inside string literal";
+        throw std::runtime_error("End of input encountered inside string literal");
     }
     tokenCharacters.push_back(*currentCharacter);
     ++currentCharacter;
@@ -348,12 +348,8 @@ void RuMInterpreter::parse() {
     try {
         this->parser.parseProgram();
     }
-    catch (char* e) {
-        std::cout << e << std::endl;
-        parser.reset();
-    }
-    catch(std::string e) {
-        std::cout << e << std::endl;
+    catch (std::runtime_error e) {
+        std::cout << e.what() << std::endl;
         parser.reset();
     }
 }

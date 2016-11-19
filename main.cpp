@@ -16,8 +16,8 @@ int main(int argc, char* argv[]) {
         try {
             interpreter.fileMode(argv[1]);
         }
-        catch (const char* e) {
-            std::cout << e << std::endl;
+        catch (const std::runtime_error e) {
+            std::cout << e.what() << std::endl;
         }
     }
     interpreter.interactiveMode();

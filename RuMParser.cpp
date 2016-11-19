@@ -12,7 +12,7 @@ RuMParser::RuMParser() {}
 RuMParser::RuMParser(std::shared_ptr<std::vector<Token>> tokenList) {
     this->tokenList = tokenList;
     this->tokenListPosition = 0;
-    this->outputBuffer = "";
+    this->parseTreeOutputBuffer = "";
 
     // Build our keyword parsing map
     keywordParseMap["if_key"] = "[keyword if]";
@@ -60,39 +60,49 @@ void RuMParser::setTokenList(std::shared_ptr<std::vector<Token>> tokenList) {
     this->tokenListPosition = 0;
 }
 
+void RuMParser::setDisplayParseTree(bool display) {
+    this->displayParseTree = display;
+}
+
+bool RuMParser::getDisplayParseTree() const {
+    return this->displayParseTree;
+}
+
 // Helper function
 std::string RuMParser::currentTokenType() {
     return tokenList->at(tokenListPosition).getTokenType();
 }
 
 void RuMParser::reset() {
-    this->outputBuffer = "";
+    this->parseTreeOutputBuffer = "";
     this->tokenListPosition = 0;
 }
 
 void RuMParser::parseProgram() {
-    outputBuffer += "[PROGRAM ";
+    parseTreeOutputBuffer += "[PROGRAM ";
     parseStmtList();
-    outputBuffer += "]";
-    std::cout << "CONSTRUCTED PARSE TREE:" << std::endl;
-    std::cout << outputBuffer << std::endl;
+    parseTreeOutputBuffer += "]";
+    if (this->displayParseTree) {
+        std::cout << "CONSTRUCTED PARSE TREE:" << std::endl;
+        std::cout << parseTreeOutputBuffer << std::endl;
+    }
     reset();
 }
 
 void RuMParser::parseStmtList() {
-    outputBuffer += "[STMT-LIST ";
+    parseTreeOutputBuffer += "[STMT-LIST ";
     while (currentTokenType() != "else_key" && currentTokenType() != "endif_key" &&
            currentTokenType() != "endwhile_key" &&
            currentTokenType() != "endfunction_key" &&
            currentTokenType() != "endinput") {
         parseStmt();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseStmt() {
     //<ARG> | <IF_STMT> | <WHILE> | <FUNC> | <CLASS> | <ASSIGN>
-    outputBuffer += "[STMT ";
+    parseTreeOutputBuffer += "[STMT ";
     if (currentTokenType() == "if_key") {
         parseIfStmt();
     }
@@ -112,11 +122,11 @@ void RuMParser::parseStmt() {
     else {
         parseArg();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseAssign() {
-    outputBuffer += "[ASSIGN ";
+    parseTreeOutputBuffer += "[ASSIGN ";
     if (currentTokenType() == "identifier") {
         parseVar();
         if (currentTokenType() == "assignment_op") {
@@ -126,21 +136,21 @@ void RuMParser::parseAssign() {
                 parseOperator();
             }
             else {
-                throw "Expected ';' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected ';' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected '=' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected '=' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'identifier' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'identifier' but instead received '" + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseFunc() {
-    outputBuffer += "[FUNC ";
+    parseTreeOutputBuffer += "[FUNC ";
     if (currentTokenType() == "function_key") {
         parseKeyword();
         if (currentTokenType() == "identifier") {
@@ -158,7 +168,8 @@ void RuMParser::parseFunc() {
                                 parseOperator();
                                 // If we just parsed a comma we need to make sure there is an identifier coming
                                 if (currentTokenType() != "identifier") {
-                                    throw "Expected 'identifier' but instead received '" + currentTokenType() + "'.";
+                                    throw std::runtime_error(
+                                            "Expected 'identifier' but instead received '" + currentTokenType() + "'.");
                                 }
                             }
                         }
@@ -169,37 +180,39 @@ void RuMParser::parseFunc() {
                                 parseKeyword();
                             }
                             else {
-                                throw "Expected 'endfun' but instead received '" + currentTokenType() + "'.";
+                                throw std::runtime_error(
+                                        "Expected 'endfun' but instead received '" + currentTokenType() + "'.");
                             }
                         }
                         else {
-                            throw "Expected ')' but instead received '" + currentTokenType() + "'.";
+                            throw std::runtime_error("Expected ')' but instead received '" + currentTokenType() + "'.");
                         }
                     }
                     else {
-                        throw "Expected '(' but instead received '" + currentTokenType() + "'.";
+                        throw std::runtime_error("Expected '(' but instead received '" + currentTokenType() + "'.");
                     }
                 }
                 else {
-                    throw "Expected 'identifier' but instead received '" + currentTokenType() + "'.";
+                    throw std::runtime_error(
+                            "Expected 'identifier' but instead received '" + currentTokenType() + "'.");
                 }
             }
             else {
-                throw "Expected '=' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected '=' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected 'variable' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected 'variable' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'fundef' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'fundef' but instead received '" + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseInvoke() {
-    outputBuffer += "[INVOKE ";
+    parseTreeOutputBuffer += "[INVOKE ";
     if (currentTokenType() == "identifier") {
         parseIdentifier();
         if (currentTokenType() == "open_paren") {
@@ -209,31 +222,31 @@ void RuMParser::parseInvoke() {
                 parseOperator();
             }
             else {
-                throw "Expected ')' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected ')' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected '(' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected '(' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'identifier' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'identifier' but instead received '" + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseArgList() {
-    outputBuffer += "[ARG-LIST ";
+    parseTreeOutputBuffer += "[ARG-LIST ";
     parseArg();
     while (currentTokenType() == "comma") {
         parseOperator();
         parseArg();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseArg() {
-    outputBuffer += "[ARG ";
+    parseTreeOutputBuffer += "[ARG ";
     if (currentTokenType() == "reference_op") {
         parseRef();
     }
@@ -246,23 +259,23 @@ void RuMParser::parseArg() {
     else {
         parseExpr();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseRef() {
-    outputBuffer += "[REF ";
+    parseTreeOutputBuffer += "[REF ";
     if (currentTokenType() == "reference_op") {
         parseOperator();
         parseVar();
     }
     else {
-        throw "Expected '&' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected '&' but instead received '" + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseAnonClass() {
-    outputBuffer += "[ANON-CLASS";
+    parseTreeOutputBuffer += "[ANON-CLASS";
     if (currentTokenType() == "new_key") {
         parseKeyword();
         if (currentTokenType() == "open_paren") {
@@ -271,27 +284,27 @@ void RuMParser::parseAnonClass() {
                 parseString();
                 if (currentTokenType() == "close_paren") {
                     parseOperator();
-                    outputBuffer += "]";
+                    parseTreeOutputBuffer += "]";
                 }
                 else {
-                    throw "Expected ')' but instead received '" + currentTokenType() + "'.";
+                    throw std::runtime_error("Expected ')' but instead received '" + currentTokenType() + "'.");
                 }
             }
             else {
-                throw "Expected 'string' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected 'string' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected '(' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected '(' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'new' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'new' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseClass() {
-    outputBuffer += "[CLASS ";
+    parseTreeOutputBuffer += "[CLASS ";
     if (currentTokenType() == "classdef_key") {
         parseKeyword();
         if (currentTokenType() == "identifier") {
@@ -305,7 +318,7 @@ void RuMParser::parseClass() {
                     parseIdentifier();
                 }
                 else {
-                    throw "Expected 'from' but instead received '" + currentTokenType() + "'.";
+                    throw std::runtime_error("Expected 'from' but instead received '" + currentTokenType() + "'.");
                 }
             }
             // Now regardless we have the class block
@@ -315,30 +328,30 @@ void RuMParser::parseClass() {
                 parseKeyword();
             }
             else {
-                throw "Expected 'endclass' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected 'endclass' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected 'identifier' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected 'identifier' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'classdef' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'classdef' but instead received '" + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseClassBlock() {
-    outputBuffer += "[CLASS-BLOCK ";
+    parseTreeOutputBuffer += "[CLASS-BLOCK ";
     while (currentTokenType() != "endclass_key") {
         // We are not done with the class items
         parseClassItem();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseClassItem() {
-    outputBuffer += "[CLASS-ITEM ";
+    parseTreeOutputBuffer += "[CLASS-ITEM ";
     if (currentTokenType() == "function_key") {
         // It is a function definition
         parseFunc();
@@ -347,25 +360,25 @@ void RuMParser::parseClassItem() {
         // Otherwise it has to be an assignment
         parseAssign();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 
 void RuMParser::parseClassAccess() {
-    outputBuffer += "[CLASS-ACCESS ";
+    parseTreeOutputBuffer += "[CLASS-ACCESS ";
     if (currentTokenType() == "identifier") {
         parseVar();
         parseClassAccessPrime();
     }
     else {
-        throw "Expected 'identifier' but instead recieved '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'identifier' but instead recieved '" + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseClassAccessPrime() {
     while (currentTokenType() == "dop_op") {
-        outputBuffer += "[CLASS-ACCESS' ";
+        parseTreeOutputBuffer += "[CLASS-ACCESS' ";
         parseOperator();
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
             // In this case it is a function invocation
@@ -375,13 +388,13 @@ void RuMParser::parseClassAccessPrime() {
             // Just a normal variable access
             parseVar();
         }
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
 }
 
 void RuMParser::parseWhile() {
     if (currentTokenType() == "while_key") {
-        outputBuffer += "[WHILE ";
+        parseTreeOutputBuffer += "[WHILE ";
         parseKeyword();
         if (currentTokenType() == "open_paren") {
             parseOperator();
@@ -391,28 +404,28 @@ void RuMParser::parseWhile() {
                 parseStmtList();
                 if (currentTokenType() == "endwhile_key") {
                     parseKeyword();
-                    outputBuffer += "]";
+                    parseTreeOutputBuffer += "]";
                 }
                 else {
-                    throw "Expected 'endwhile' but instead received '" + currentTokenType() + "'.";
+                    throw std::runtime_error("Expected 'endwhile' but instead received '" + currentTokenType() + "'.");
                 }
             }
             else {
-                throw "Expected ')' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected ')' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected '(' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected '(' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'while' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'while' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseIfStmt() {
     if (currentTokenType() == "if_key") {
-        outputBuffer += "[IF-STMT ";
+        parseTreeOutputBuffer += "[IF-STMT ";
         parseKeyword();
         if (currentTokenType() == "open_paren") {
             parseOperator();
@@ -429,27 +442,27 @@ void RuMParser::parseIfStmt() {
                 // Now make sure that there is an endif
                 if (currentTokenType() == "endif_key") {
                     parseKeyword();
-                    outputBuffer += "]";
+                    parseTreeOutputBuffer += "]";
                 }
                 else {
-                    throw "Expected `endif_key` but instead received '" + currentTokenType() + "'.";
+                    throw std::runtime_error("Expected `endif_key` but instead received '" + currentTokenType() + "'.");
                 }
             }
             else {
-                throw "Expected a ')' but instead received '" + currentTokenType() + "'.";
+                throw std::runtime_error("Expected a ')' but instead received '" + currentTokenType() + "'.");
             }
         }
         else {
-            throw "Expected a '(' but instead received '" + currentTokenType() + "'.";
+            throw std::runtime_error("Expected a '(' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected 'if' but instead received '" + currentTokenType() + "'.";
+        throw std::runtime_error("Expected 'if' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseExpr() {
-    outputBuffer += "[EXPR ";
+    parseTreeOutputBuffer += "[EXPR ";
     if (currentTokenType() == "bool_not") {
         parseOperator();
         parseExpr();
@@ -457,14 +470,14 @@ void RuMParser::parseExpr() {
     else {
         parseBool();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseBool() {
-    outputBuffer += "[BOOL ";
+    parseTreeOutputBuffer += "[BOOL ";
     parseBoolTerm();
     parseBoolPrime();
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseBoolPrime() {
@@ -473,15 +486,15 @@ void RuMParser::parseBoolPrime() {
            currentTokenType() == "bool_greaterthan" ||
            currentTokenType() == "bool_and" ||
            currentTokenType() == "bool_or") {
-        outputBuffer += "[BOOL' ";
+        parseTreeOutputBuffer += "[BOOL' ";
         parseOperator();
         parseBoolTerm();
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
 }
 
 void RuMParser::parseBoolTerm() {
-    outputBuffer += "[BOOL-TERM ";
+    parseTreeOutputBuffer += "[BOOL-TERM ";
     if (currentTokenType() == "true_key" ||
         currentTokenType() == "false_key" ||
         currentTokenType() == "null_key") {
@@ -493,66 +506,65 @@ void RuMParser::parseBoolTerm() {
     else {
         parseMathExpr();
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseMathExpr() {
-    outputBuffer += "[MATH-EXPR ";
+    parseTreeOutputBuffer += "[MATH-EXPR ";
     parseTerm();
     parseMathExprPrime();
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseMathExprPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
     if (currentTokenType() == "plus_op" ||
         currentTokenType() == "negative_op") {
-        outputBuffer += "[MATH-EXPR' ";
+        parseTreeOutputBuffer += "[MATH-EXPR' ";
         parseOperator();
         parseTerm();
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
 }
 
 void RuMParser::parseTerm() {
-    outputBuffer += "[TERM ";
+    parseTreeOutputBuffer += "[TERM ";
     parseFactor();
     parseTermPrime();
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseTermPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
     if (currentTokenType() == "mult_op" ||
         currentTokenType() == "div_op") {
-        outputBuffer += "[TERM' ";
+        parseTreeOutputBuffer += "[TERM' ";
         parseOperator();
         parseFactor();
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
 }
 
 void RuMParser::parseFactor() {
-    outputBuffer += "[FACTOR ";
+    parseTreeOutputBuffer += "[FACTOR ";
     parseNeg();
     parseFactorPrime();
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseFactorPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for exponentiation
     while (currentTokenType() == "exponent_op") {
-        outputBuffer += "[FACTOR' ";
+        parseTreeOutputBuffer += "[FACTOR' ";
         parseOperator();
         parseNeg();
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
 }
 
 void RuMParser::parseNeg() {
-    std::shared_ptr<Token> currentToken(&(tokenList->at(tokenListPosition)));
-    outputBuffer += "[NEG ";
-    if (currentToken->getTokenType() == "identifier") {
+    parseTreeOutputBuffer += "[NEG ";
+    if (currentTokenType() == "identifier") {
         // In this case it's either a variable or a function invocation
         // If the next token is a '(' it's a function invocation
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
@@ -565,15 +577,15 @@ void RuMParser::parseNeg() {
             parseVar();
         }
     }
-    else if (currentToken->getTokenType() == "float" || currentToken->getTokenType() == "integer") {
+    else if (currentTokenType() == "float" || currentTokenType() == "integer") {
         parseNum();
     }
-    else if (currentToken->getTokenType() == "negative_op") {
+    else if (currentTokenType() == "negative_op") {
         // -<NEG>
         parseOperator();
         parseNeg();
     }
-    else if (currentToken->getTokenType() == "open_paren") {
+    else if (currentTokenType() == "open_paren") {
         // (<EXPR>)
         parseOperator();
         parseExpr();
@@ -582,121 +594,117 @@ void RuMParser::parseNeg() {
             parseOperator();
         }
         else {
-            throw "Expected 'close_paren' but instead received '" + currentToken->getTokenType() + "'.";
+            throw std::runtime_error("Expected 'close_paren' but instead received '" + currentTokenType() + "'.");
         }
     }
     else {
-        throw "Expected a number, or negative number, or variable, or function call, or '(' but instead received '"
-              + currentToken->getTokenType() + "'.";
+        throw std::runtime_error(
+                "Expected a number, or negative number, or variable, or function call, or '(' but instead received '"
+                + currentTokenType() + "'.");
     }
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseList() {
-    std::shared_ptr<Token> currentToken(&(tokenList->at(tokenListPosition)));
-    outputBuffer += "[LIST ";
-    if (currentToken->getTokenType() == "left_square_bracket") {
+    parseTreeOutputBuffer += "[LIST ";
+    if (currentTokenType() == "left_square_bracket") {
         parseOperator();
         parseArgList();
-        currentToken = std::shared_ptr<Token>(&(tokenList->at(tokenListPosition)));
-        if (currentToken->getTokenType() == "right_square_bracket") {
+        if (currentTokenType() == "right_square_bracket") {
             parseOperator();
         }
         else {
-            throw "Expected 'right_square_bracket' but instead received '" + currentToken->getTokenType() + "'.";
+            throw std::runtime_error(
+                    "Expected 'right_square_bracket' but instead received '" + currentTokenType() + "'.");
         }
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
     else {
-        throw "Expected 'left_square_bracket' but instead received '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error("Expected 'left_square_bracket' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseVar() {
-    outputBuffer += "[VAR ";
+    parseTreeOutputBuffer += "[VAR ";
     parseIdentifier();
-    outputBuffer += "]";
+    parseTreeOutputBuffer += "]";
 }
 
 void RuMParser::parseIdentifier() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (currentToken->getTokenType() == "identifier") {
-        outputBuffer += "[identifier " + currentToken->getLexeme() + "]";
+    if (currentTokenType() == "identifier") {
+        parseTreeOutputBuffer += "[identifier " + tokenList->at(tokenListPosition).getLexeme() + "]";
         ++tokenListPosition;
     }
     else {
-        throw "Expected an 'identifier' but instead received '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error("Expected an 'identifier' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseString() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (currentToken->getTokenType() == "string") {
-        outputBuffer += "[STRING " + currentToken->getLexeme() + "]";
+    if (currentTokenType() == "string") {
+        parseTreeOutputBuffer += "[STRING " + tokenList->at(tokenListPosition).getLexeme() + "]";
         ++tokenListPosition;
     }
     else {
-        throw "Expected a 'string' but instead received '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error("Expected a 'string' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseNum() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (currentToken->getTokenType() == "integer") {
-        outputBuffer += "[NUM ";
+    if (currentTokenType() == "integer") {
+        parseTreeOutputBuffer += "[NUM ";
         parseInt();
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
-    else if (currentToken->getTokenType() == "float") {
-        outputBuffer += "[NUM ";
+    else if (currentTokenType() == "float") {
+        parseTreeOutputBuffer += "[NUM ";
         parseFloat();
-        outputBuffer += "]";
+        parseTreeOutputBuffer += "]";
     }
     else {
-        throw "Expected a 'float' or an 'int' but instead received '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error("Expected a 'float' or an 'int' but instead received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseInt() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (currentToken->getTokenType() == "integer") {
-        outputBuffer += "[INT " + currentToken->getLexeme() + "]";
+    if (currentTokenType() == "integer") {
+        parseTreeOutputBuffer += "[INT " + tokenList->at(tokenListPosition).getLexeme() + "]";
         ++tokenListPosition;
     }
     else {
-        throw "Expected 'int' and received '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error("Expected 'int' and received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseFloat() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (currentToken->getTokenType() == "float") {
-        outputBuffer += "[FLOAT " + currentToken->getLexeme() + "]";
+    if (currentTokenType() == "float") {
+        parseTreeOutputBuffer += "[FLOAT " + tokenList->at(tokenListPosition).getLexeme() + "]";
         ++tokenListPosition;
     }
     else {
-        throw "Expected 'float' and received '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error("Expected 'float' and received '" + currentTokenType() + "'.");
     }
 }
 
 void RuMParser::parseKeyword() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (keywordParseMap.count(currentToken->getTokenType()) != 0) {
-        outputBuffer += keywordParseMap[currentToken->getTokenType()];
+    if (keywordParseMap.count(currentTokenType()) != 0) {
+        parseTreeOutputBuffer += keywordParseMap[currentTokenType()];
         ++tokenListPosition;
     }
     else {
-        throw "Expected a keyword token but instead received a token of type '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error(
+                "Expected a keyword token but instead received a token of type '" + currentTokenType() + "'.");
     }
 }
 
+
 void RuMParser::parseOperator() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
-    if (operatorParseMap.count(currentToken->getTokenType()) != 0) {
-        outputBuffer += operatorParseMap[currentToken->getTokenType()];
+    if (operatorParseMap.count(currentTokenType()) != 0) {
+        parseTreeOutputBuffer += operatorParseMap[currentTokenType()];
         ++tokenListPosition;
     }
     else {
-        throw "Expected an operator token but instead received a token of type '" + currentToken->getTokenType() + "'.";
+        throw std::runtime_error(
+                "Expected an operator token but instead received a token of type '" + currentTokenType() + "'.");
     }
 }

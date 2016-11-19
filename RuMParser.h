@@ -14,7 +14,8 @@
 class RuMParser {
     std::shared_ptr<std::vector<Token>> tokenList;
     unsigned int tokenListPosition;
-    std::string outputBuffer;
+    std::string parseTreeOutputBuffer;
+    bool displayParseTree = false;
     std::unordered_map<std::string, std::string> keywordParseMap;
     std::unordered_map<std::string, std::string> operatorParseMap;
 
@@ -22,52 +23,91 @@ class RuMParser {
     std::string currentTokenType();
 
     void parseStmtList();
+
     void parseStmt();
+
     void parseAssign();
 
     void parseFunc();
+
     void parseInvoke();
+
     void parseArgList();
+
     void parseArg();
+
     void parseRef();
+
     void parseAnonClass();
+
     void parseClass();
 
     void parseClassBlock();
+
     void parseClassItem();
+
     void parseClassAccess();
+
     void parseClassAccessPrime();
+
     void parseWhile();
 
     void parseIfStmt();
+
     void parseExpr();
+
     void parseBool();
+
     void parseBoolPrime();
+
     void parseBoolTerm();
+
     void parseMathExpr();
 
     void parseMathExprPrime();
+
     void parseTerm();
+
     void parseTermPrime();
+
     void parseFactor();
+
     void parseFactorPrime();
+
     void parseNeg();
+
     void parseList();
 
     void parseVar();
+
     void parseIdentifier();
+
     void parseString();
+
     void parseNum();
+
     void parseInt();
+
     void parseFloat();
+
     void parseKeyword();
+
     void parseOperator();
+
 public:
 
     RuMParser();
+
     RuMParser(std::shared_ptr<std::vector<Token>> tokenList);
+
     void setTokenList(std::shared_ptr<std::vector<Token>> tokenList);
+
+    void setDisplayParseTree(bool display);
+
+    bool getDisplayParseTree() const;
+
     void parseProgram();
+
     void reset();
 };
 
