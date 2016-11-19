@@ -66,7 +66,7 @@ RuMInterpreter::RuMInterpreter() {
     operatorMap[","] = "comma";
 
     // Finally we tie in our parser
-    this->parser = RuMParser(&tokenList);
+    this->parser = RuMParser(std::shared_ptr<std::vector<Token>>(&tokenList));
 }
 
 void RuMInterpreter::getNextNonWhitespace() {

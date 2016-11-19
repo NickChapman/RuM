@@ -12,7 +12,7 @@
 #include "Token.h"
 
 class RuMParser {
-    std::vector<Token>* tokenList;
+    std::shared_ptr<std::vector<Token>> tokenList;
     unsigned int tokenListPosition;
     std::string outputBuffer;
     std::unordered_map<std::string, std::string> keywordParseMap;
@@ -65,8 +65,8 @@ class RuMParser {
 public:
 
     RuMParser();
-    RuMParser(std::vector<Token>* tokenList);
-    void setTokenList(std::vector<Token>* tokenList);
+    RuMParser(std::shared_ptr<std::vector<Token>> tokenList);
+    void setTokenList(std::shared_ptr<std::vector<Token>> tokenList);
     void parseProgram();
     void reset();
 };

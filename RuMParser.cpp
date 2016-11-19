@@ -9,7 +9,7 @@
 // We need a token list in order to do anything
 RuMParser::RuMParser() {}
 
-RuMParser::RuMParser(std::vector<Token> *tokenList) {
+RuMParser::RuMParser(std::shared_ptr<std::vector<Token>> tokenList) {
     this->tokenList = tokenList;
     this->tokenListPosition = 0;
     this->outputBuffer = "";
@@ -55,7 +55,7 @@ RuMParser::RuMParser(std::vector<Token> *tokenList) {
     operatorParseMap["semicolon"] = "[operator ';']";
 }
 
-void RuMParser::setTokenList(std::vector<Token> *tokenList) {
+void RuMParser::setTokenList(std::shared_ptr<std::vector<Token>> tokenList) {
     this->tokenList = tokenList;
     this->tokenListPosition = 0;
 }
@@ -550,7 +550,7 @@ void RuMParser::parseFactorPrime() {
 }
 
 void RuMParser::parseNeg() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
+    std::shared_ptr<Token> currentToken(&(tokenList->at(tokenListPosition)));
     outputBuffer += "[NEG ";
     if (currentToken->getTokenType() == "identifier") {
         // In this case it's either a variable or a function invocation
@@ -593,12 +593,12 @@ void RuMParser::parseNeg() {
 }
 
 void RuMParser::parseList() {
-    Token *currentToken = &(tokenList->at(tokenListPosition));
+    std::shared_ptr<Token> currentToken(&(tokenList->at(tokenListPosition)));
     outputBuffer += "[LIST ";
     if (currentToken->getTokenType() == "left_square_bracket") {
         parseOperator();
         parseArgList();
-        currentToken = &(tokenList->at(tokenListPosition));
+        currentToken = std::shared_ptr<Token>(&(tokenList->at(tokenListPosition)));
         if (currentToken->getTokenType() == "right_square_bracket") {
             parseOperator();
         }
