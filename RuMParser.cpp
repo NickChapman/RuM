@@ -116,6 +116,7 @@ void RuMParser::parseStmt() {
         parseClass();
     }
     else if (currentTokenType() == "identifier" &&
+             (tokenListPosition + 1 < tokenList->size()) &&
              tokenList->at(tokenListPosition + 1).getTokenType() == "assignment_op") {
         parseAssign();
     }

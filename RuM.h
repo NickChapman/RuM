@@ -18,19 +18,22 @@ class RuMInterpreter {
     static const char END_CHAR = '$';
     const char *INTERPRETER_PROMPT_NEW;
     const char *INTERPRETER_PROMPT_CONTINUED;
+    bool displayTokenization = false;
     bool isInteractiveMode;
 
-    char *inputBuffer;
-    char *currentCharacter;
+    std::string inputBuffer;
+    unsigned long currentCharacterIndex;
     char *outputBuffer;
     char *outputPosition;
-    std::vector<Token> tokenList;
+    std::shared_ptr<std::vector<Token>> tokenList;
     int tokenListPosition;
     RuMParser parser;
 
     void tokenize();
 
     void parse();
+
+    const char &currentCharacter() const;
 
     void fillInputBuffer();
 
@@ -39,7 +42,6 @@ class RuMInterpreter {
     void ignoreComment();
 
     bool numericLiteral();
-
 
     void stringLiteral();
 
@@ -59,16 +61,21 @@ public:
 
     RuMInterpreter();
 
-    static bool isWhiteSpace(char *character);
+    static bool isWhiteSpace(const char &character);
 
-    static bool isIdentifierCharacter(char *character);
+    static bool isIdentifierCharacter(const char &character);
 
-    static bool isDigit(char *character);
+    static bool isDigit(const char &character);
 
     // Interpreter Types
     void interactiveMode();
 
     void fileMode(char *filename);
+
+    // Interpreter behaviors
+    void setDisplayParseTree(bool display);
+
+    void setDisplayTokenization(bool display);
 };
 
 #endif //PROJECT2_RUM_H
