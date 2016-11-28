@@ -4,7 +4,7 @@
 
 #include "Scope.h"
 
-std::shared_ptr<type_union> Scope::getVariable(std::string& variableName) {
+std::shared_ptr<TypeStruct> Scope::getVariable(std::string& variableName) {
     if (symbolTable.find(variableName) != symbolTable.end()) {
         return this->symbolTable.at(variableName);
     }
@@ -14,5 +14,5 @@ std::shared_ptr<type_union> Scope::getVariable(std::string& variableName) {
 }
 
 Scope::Scope() {
-    this->symbolTable = std::unordered_map<std::string, std::shared_ptr<type_union>>();
+    this->symbolTable = std::unordered_map<std::string, std::shared_ptr<TypeStruct>>();
 }

@@ -13,13 +13,17 @@ class Type {
     std::string type;
     T value;
 public:
-    Type() {};
+    Type() {
+        identifier = "";
+        type = "";
+    };
 
     Type(std::string type, T value) {
         this->type = type;
         this->value = value;
     }
 
+    ~Type() {}
 
     std::string getType() const {
         return this->type;

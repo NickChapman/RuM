@@ -27,7 +27,7 @@ class RuMParser {
     // Helper functions
     std::string currentTokenType();
 
-    void setLastExpression(std::shared_ptr<type_union> expression);
+    void setLastExpression(std::shared_ptr<TypeStruct>& expression);
 
     void parseStmtList();
 
@@ -37,7 +37,7 @@ class RuMParser {
 
     void parseFunc();
 
-    std::shared_ptr<type_union> parseInvoke();
+    std::shared_ptr<TypeStruct> parseInvoke();
 
     void parseArgList();
 
@@ -53,7 +53,7 @@ class RuMParser {
 
     void parseClassItem();
 
-    std::shared_ptr<type_union> parseClassAccess();
+    std::shared_ptr<TypeStruct> parseClassAccess();
 
     void parseClassAccessPrime();
 
@@ -61,39 +61,21 @@ class RuMParser {
 
     void parseIfStmt();
 
-    std::shared_ptr<type_union> parseExpr();
+    std::shared_ptr<TypeStruct> parseExpr();
 
     void parseBool();
 
     void parseBoolPrime();
 
-    void parseBoolTerm();
+    std::shared_ptr<TypeStruct> parseBoolTerm();
 
-//    void parseMathExpr();
-//
-//    void parseMathExprPrime();
-//
-//    void parseTerm();
-//
-//    void parseTermPrime();
-//
-//    void parseFactor();
-//
-//    void parseFactorPrime();
+    std::shared_ptr<TypeStruct> parseMathExpr();
 
-    std::shared_ptr<type_union> parseMathExpr();
+    std::shared_ptr<TypeStruct> parseTerm();
 
-    std::shared_ptr<type_union> parseMathExprPrime();
+    std::shared_ptr<TypeStruct> parseFactor();
 
-    std::shared_ptr<type_union> parseTerm();
-
-    //std::shared_ptr<type_union> parseTermPrime();
-
-    std::shared_ptr<type_union> parseFactor();
-
-    std::shared_ptr<type_union> parseFactorPrime();
-
-    std::shared_ptr<type_union> parseNeg();
+    std::shared_ptr<TypeStruct> parseNeg();
 
     void parseList();
 
@@ -101,13 +83,13 @@ class RuMParser {
 
     std::string parseIdentifier();
 
-    std::shared_ptr<Type<std::string>> parseString();
+    std::shared_ptr<TypeStruct> parseString();
 
-    std::shared_ptr<type_union> parseNum();
+    std::shared_ptr<TypeStruct> parseNum();
 
-    std::shared_ptr<Type<int>> parseInt();
+    std::shared_ptr<TypeStruct> parseInt();
 
-    std::shared_ptr<Type<float>> parseFloat();
+    std::shared_ptr<TypeStruct> parseFloat();
 
     void parseKeyword();
 

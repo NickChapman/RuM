@@ -6,41 +6,49 @@
 #define RUM_SCOPE_H
 
 #include <unordered_map>
+#include <cstdlib>
 #include "Type.h"
 
-union type_union {
-    std::shared_ptr<Type<int>> intType;
-    std::shared_ptr<Type<float>> floatType;
-    std::shared_ptr<Type<std::string>> stringType;
-    std::shared_ptr<Type<bool>> boolType;
+struct TypeStruct {
+    union type_union {
+        Type<int> *intType;
+        Type<float> *floatType;
+        Type<std::string> *stringType;
+        Type<bool> *boolType;
 
-    type_union() {
-        intType = nullptr;
-        floatType = nullptr;
-        stringType = nullptr;
-        boolType = nullptr;
+        type_union() {
+            intType = nullptr;
+        }
+
+        ~type_union() {
+            //std::free(intType);
+        }
+    };
+
+    type_union typeUnion;
+    char activeType;
+
+    TypeStruct() {
+        typeUnion = type_union();
+        activeType = 'N';
     }
 
-    type_union(type_union *other) {
-        this->intType = other->intType;
-        this->floatType = other->floatType;
-        this->stringType = other->stringType;
-        this->boolType = other->boolType;
+    TypeStruct(TypeStruct *other) {
+        this->typeUnion = other->typeUnion;
+        this->activeType = other->activeType;
     }
 
-    ~type_union() {}
+    ~TypeStruct() {}
 };
 
 class Scope {
 
-    std::unordered_map<std::string, std::shared_ptr<type_union>> symbolTable;
+    std::unordered_map<std::string, std::shared_ptr<TypeStruct>> symbolTable;
 
 public:
-    std::shared_ptr<type_union> getVariable(std::string &variableName);
+    std::shared_ptr<TypeStruct> getVariable(std::string &variableName);
 
-    void setVariable(std::string &variableName, std::shared_ptr<type_union>) {
-
-    }
+    void setVariable(std::string &variableName, std::shared_ptr<TypeStruct>); // TODO
 
     Scope();
 };

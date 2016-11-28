@@ -77,21 +77,25 @@ std::string RuMParser::currentTokenType() {
     return tokenList->at(tokenListPosition).getTokenType();
 }
 
-void RuMParser::setLastExpression(std::shared_ptr<type_union> expression) {
-    if (expression->intType != nullptr) {
-        lastExpression = std::to_string(expression->intType->getValue());
-    }
-    else if (expression->floatType != nullptr) {
-        lastExpression = std::to_string(expression->floatType->getValue());
-    }
-    else if (expression->boolType != nullptr) {
-        lastExpression = std::to_string(expression->boolType->getValue());
-    }
-    else if (expression->stringType != nullptr) {
-        lastExpression = expression->stringType->getValue();
-    }
-    else {
-        lastExpression = "nullptr";
+void RuMParser::setLastExpression(std::shared_ptr<TypeStruct>& expression) {
+    switch (expression->activeType) {
+        case 'I':
+            this->lastExpression = std::to_string(expression->typeUnion.intType->getValue());
+            break;
+        case 'F':
+            this->lastExpression = std::to_string(expression->typeUnion.floatType->getValue());
+            break;
+        case 'S':
+            this->lastExpression = expression->typeUnion.stringType->getValue();
+            break;
+        case 'B':
+            this->lastExpression = std::to_string(expression->typeUnion.boolType->getValue());
+            break;
+        case 'N':
+            this->lastExpression = "nullptr";
+            break;
+        default:
+            this->lastExpression = "nullptr";
     }
 }
 
@@ -171,6 +175,7 @@ std::string RuMParser::parseAssign() {
         throw std::runtime_error("Expected 'identifier' but instead received '" + currentTokenType() + "'.");
     }
     parseTreeOutputBuffer += "]";
+    return ""; // TODO
 }
 
 void RuMParser::parseFunc() {
@@ -235,7 +240,7 @@ void RuMParser::parseFunc() {
     parseTreeOutputBuffer += "]";
 }
 
-std::shared_ptr<type_union> RuMParser::parseInvoke() {
+std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
     parseTreeOutputBuffer += "[INVOKE ";
     if (currentTokenType() == "identifier") {
         parseIdentifier();
@@ -257,6 +262,7 @@ std::shared_ptr<type_union> RuMParser::parseInvoke() {
         throw std::runtime_error("Expected 'identifier' but instead received '" + currentTokenType() + "'.");
     }
     parseTreeOutputBuffer += "]";
+    return nullptr; // TODO
 }
 
 void RuMParser::parseArgList() {
@@ -388,7 +394,7 @@ void RuMParser::parseClassItem() {
     parseTreeOutputBuffer += "]";
 }
 
-std::shared_ptr<type_union> RuMParser::parseClassAccess() {
+std::shared_ptr<TypeStruct> RuMParser::parseClassAccess() {
     parseTreeOutputBuffer += "[CLASS-ACCESS ";
     if (currentTokenType() == "identifier") {
         parseVar();
@@ -398,6 +404,7 @@ std::shared_ptr<type_union> RuMParser::parseClassAccess() {
         throw std::runtime_error("Expected 'identifier' but instead recieved '" + currentTokenType() + "'.");
     }
     parseTreeOutputBuffer += "]";
+    return nullptr; // TODO
 }
 
 void RuMParser::parseClassAccessPrime() {
@@ -485,7 +492,7 @@ void RuMParser::parseIfStmt() {
     }
 }
 
-std::shared_ptr<type_union> RuMParser::parseExpr() {
+std::shared_ptr<TypeStruct> RuMParser::parseExpr() {
     parseTreeOutputBuffer += "[EXPR ";
     if (currentTokenType() == "bool_not") {
         parseOperator();
@@ -495,6 +502,7 @@ std::shared_ptr<type_union> RuMParser::parseExpr() {
         parseBool();
     }
     parseTreeOutputBuffer += "]";
+    return nullptr; // TODO
 }
 
 void RuMParser::parseBool() {
@@ -505,6 +513,7 @@ void RuMParser::parseBool() {
 }
 
 void RuMParser::parseBoolPrime() {
+    // TODO: Eliminate this
     while (currentTokenType() == "bool_equals" ||
            currentTokenType() == "bool_lessthan" ||
            currentTokenType() == "bool_greaterthan" ||
@@ -517,220 +526,67 @@ void RuMParser::parseBoolPrime() {
     }
 }
 
-void RuMParser::parseBoolTerm() {
+std::shared_ptr<TypeStruct> RuMParser::parseBoolTerm() {
+    // TODO: Add support for `NULL`
     parseTreeOutputBuffer += "[BOOL-TERM ";
-    if (currentTokenType() == "true_key" ||
-        currentTokenType() == "false_key" ||
-        currentTokenType() == "null_key") {
+    std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>();
+    if (currentTokenType() == "true_key") {
         parseKeyword();
+        ret->typeUnion.boolType = new Type<bool>("boolean", true);
+        ret->activeType = 'B';
+    }
+    else if(currentTokenType() == "false_key") {
+        parseKeyword();
+        ret->typeUnion.boolType = new Type<bool>("boolean", false);
+        ret->activeType = 'B';
     }
     else if (currentTokenType() == "string") {
-        parseString();
+        ret = parseString();
     }
     else {
-        parseMathExpr();
+        ret = parseMathExpr();
     }
     parseTreeOutputBuffer += "]";
+    setLastExpression(ret);
+    return ret;
 }
 
-std::shared_ptr<type_union> RuMParser::parseMathExpr() {
+std::shared_ptr<TypeStruct> RuMParser::parseMathExpr() {
     parseTreeOutputBuffer += "[MATH-EXPR ";
-    parseTerm();
-    parseMathExprPrime();
-    parseTreeOutputBuffer += "]";
-}
-
-std::shared_ptr<type_union> RuMParser::parseMathExprPrime() {
-    // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
-    if (currentTokenType() == "plus_op" ||
-        currentTokenType() == "negative_op") {
-        parseTreeOutputBuffer += "[MATH-EXPR' ";
+    std::shared_ptr<TypeStruct> base = parseTerm();
+    while (currentTokenType() == "plus_op" || currentTokenType() == "negative_op") {
+        std::string operation = currentTokenType();
         parseOperator();
-        parseTerm();
-        parseTreeOutputBuffer += "]";
-    }
-}
-
-std::shared_ptr<type_union> RuMParser::parseTerm() {
-    try {
-        parseTreeOutputBuffer += "[TERM ";
-        std::shared_ptr<type_union> base = parseFactor();
-        parseTreeOutputBuffer += "]";
-        while (currentTokenType() == "mult_op" || currentTokenType() == "div_op") {
-            std::shared_ptr<type_union> additional;
-            // Determine what type of action to carry out
-            if (currentTokenType() == "mult_op") {
-                parseTreeOutputBuffer += "[TERM ";
-                // Do a multiplication
-                parseOperator();
-                additional = parseFactor();
-                // Determine what type of math we need to do
-                if (base->intType != nullptr) {
-                    if (additional->intType != nullptr) {
-                        base->intType->setValue(base->intType->getValue() * additional->intType->getValue());
-                    }
-                    else {
-                        // if (additional->floatType != nullptr)
-                        base->floatType->setValue(base->intType->getValue() * additional->floatType->getValue());
-                        base->intType = nullptr;
-                    }
-                }
-                else {
-                    // if (base->floatType != nullptr)
-                    if (additional->intType != nullptr) {
-                        base->floatType->setValue(base->floatType->getValue() * additional->intType->getValue());
-                    }
-                    else {
-                        //if (additional->floatType != nullptr)
-                        base->floatType->setValue(base->floatType->getValue() * additional->floatType->getValue());
-                    }
-                }
-                parseTreeOutputBuffer += "]";
-            }
-            else if (currentTokenType() == "div_op") {
-                parseTreeOutputBuffer += "[TERM ";
-                // Do a division
-                parseOperator();
-                additional = parseFactor();
-                if (base->intType != nullptr) {
-                    if (additional->intType != nullptr) {
-                        // If they're both integers then check to see if we can perform an integer division
-                        if (base->intType->getValue() % additional->intType->getValue() == 0) {
-                            // Integer division
-                            base->intType->setValue(base->intType->getValue() / additional->intType->getValue());
-                        }
-                        else {
-                            base->floatType->setValue(
-                                    ((float) base->intType->getValue()) / additional->intType->getValue());
-                            base->intType = nullptr;
-                        }
-                    }
-                    else {
-                        // if (additional->floatType != nullptr)
-                        // Integer / float
-                        base->floatType->setValue(base->intType->getValue() / additional->floatType->getValue());
-                        base->intType = nullptr;
-                    }
-                }
-                else {
-                    //if (base->floatType != nullptr)
-                    if (additional->intType != nullptr) {
-                        base->floatType->setValue(base->floatType->getValue() / additional->intType->getValue());
-                    }
-                    else {
-                        //if (additional->floatType != nullptr)
-                        base->floatType->setValue(base->floatType->getValue() / additional->floatType->getValue());
-                    }
-                }
-            }
-            // Otherwise stop
-            parseTreeOutputBuffer += "]";
-        }
-        setLastExpression(base);
-        return base;
-    }
-        // If we reach this catch statement then that means that someone tried to do a multiplication or division with a string
-    catch (std::runtime_error e) {
-        throw std::runtime_error(
-                "RuMParser::parseTerm: Expected integer or float math but instead received string or boolean.");
-    }
-}
-
-//std::shared_ptr<type_union> RuMParser::parseTermPrime() {
-//    // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
-//    while (currentTokenType() == "mult_op" || currentTokenType() == "div_op") {
-//        parseTreeOutputBuffer += "[TERM' ";
-//        parseOperator();
-//        parseFactor();
-//        parseTreeOutputBuffer += "]";
-//    }
-//}
-
-std::shared_ptr<type_union> RuMParser::parseFactor() {
-    parseTreeOutputBuffer += "[FACTOR ";
-    std::shared_ptr<type_union> factorRet = parseNeg();
-    // Now we need to determine what we need to do next
-    std::string nextOperation = currentTokenType();
-    std::shared_ptr<type_union> factorPrimeRet = parseFactorPrime();
-    if (factorPrimeRet != nullptr) {
-        if (factorRet->intType != nullptr) {
-            if (factorPrimeRet->intType != nullptr) {
-                factorRet->intType->setValue(
-                        (int) std::pow(factorRet->intType->getValue(), factorPrimeRet->intType->getValue()));
-            }
-            else if (factorPrimeRet->floatType != nullptr) {
-                factorRet->floatType->setValue(
-                        (float) std::pow(factorRet->intType->getValue(), factorPrimeRet->floatType->getValue()));
-                factorRet->intType = nullptr;
+        std::shared_ptr<TypeStruct> additional = parseTerm();
+        // If it's a subtraction we'll perform addition on the negative
+        if (operation == "negative_op") {
+            if (additional->activeType == 'I') {
+                additional->typeUnion.intType->setValue(additional->typeUnion.intType->getValue() * -1);
             }
             else {
-                throw std::runtime_error(
-                        "RuMParser::parseFactor: Expected integer or float math but found string or boolean");
+                additional->typeUnion.floatType->setValue(additional->typeUnion.floatType->getValue() * -1);
             }
         }
-        else if (factorRet->floatType != nullptr) {
-            if (factorPrimeRet->intType) {
-                factorRet->floatType->setValue(
-                        (float) std::pow(factorRet->floatType->getValue(), factorPrimeRet->intType->getValue()));
-            }
-            else if (factorPrimeRet->floatType != nullptr) {
-                factorRet->floatType->setValue(
-                        std::pow(factorRet->floatType->getValue(), factorPrimeRet->floatType->getValue()));
+        // Now do the addition
+        if (base->activeType == 'I') {
+            if (additional->activeType == 'I') {
+                base->typeUnion.intType->setValue(
+                        base->typeUnion.intType->getValue() + additional->typeUnion.intType->getValue());
             }
             else {
-                throw std::runtime_error(
-                        "RuMParser::parseFactor: Expected integer or float math but found string or boolean");
+                base->typeUnion.floatType->setValue(
+                        base->typeUnion.intType->getValue() + additional->typeUnion.floatType->getValue());
+                base->activeType = 'F';
             }
         }
         else {
-            throw std::runtime_error(
-                    "RuMParser::parseFactor: Expected integer or float math but found string or boolean");
-        }
-    }
-    parseTreeOutputBuffer += "]";
-    setLastExpression(factorRet);
-    return factorRet;
-}
-
-std::shared_ptr<type_union> RuMParser::parseFactorPrime() {
-    // TODO: THIS IS NOT GOING TO WORK
-    // This is used to eliminate left recursion and get appropriate associativity for exponentiation
-    std::shared_ptr<type_union> base = nullptr;
-    if (currentTokenType() == "exponent_op") {
-        parseTreeOutputBuffer += "[FACTOR' ";
-        parseOperator();
-        base = parseNeg();
-        parseTreeOutputBuffer += "]";
-    }
-    while (currentTokenType() == "exponent_op") {
-        std::shared_ptr<type_union> additional;
-        parseTreeOutputBuffer += "[FACTOR' ";
-        parseOperator();
-        additional = parseNeg();
-        // Incorporate this into the base
-        if (base->intType != nullptr) {
-            if (additional->intType != nullptr) {
-                base->intType->setValue((int) std::pow(base->intType->getValue(), additional->intType->getValue()));
-            }
-            else if (additional->floatType != nullptr) {
-                base->floatType->setValue((float) std::pow(base->intType->getValue(), additional->floatType->getValue()));
-                base->intType = nullptr;
+            if (additional->activeType == 'I') {
+                base->typeUnion.floatType->setValue(
+                        base->typeUnion.floatType->getValue() + additional->typeUnion.intType->getValue());
             }
             else {
-                throw std::runtime_error(
-                        "RuMParser::parseFactorPrime: Expected integer or float math but instead received string or boolean.");
-            }
-        }
-        else if (base->floatType != nullptr) {
-            if (additional->intType != nullptr) {
-                base->floatType->setValue((float) std::pow(base->intType->getValue(), additional->intType->getValue()));
-            }
-            else if (additional->floatType != nullptr) {
-                base->floatType->setValue((float) std::pow(base->intType->getValue(), additional->floatType->getValue()));
-            }
-            else {
-                throw std::runtime_error(
-                        "RuMParser::parseFactorPrime: Expected integer or float math but instead received string or boolean.");
+                base->typeUnion.floatType->setValue(
+                        base->typeUnion.floatType->getValue() + additional->typeUnion.floatType->getValue());
             }
         }
         parseTreeOutputBuffer += "]";
@@ -738,9 +594,123 @@ std::shared_ptr<type_union> RuMParser::parseFactorPrime() {
     return base;
 }
 
-std::shared_ptr<type_union> RuMParser::parseNeg() {
-    // TODO: NEG NEEDS A MAJOR OVERHAUL
-    std::shared_ptr<type_union> ret = std::make_shared<type_union>();
+std::shared_ptr<TypeStruct> RuMParser::parseTerm() {
+    parseTreeOutputBuffer += "[TERM ";
+    std::shared_ptr<TypeStruct> base = parseFactor();
+    parseTreeOutputBuffer += "]";
+    while (currentTokenType() == "mult_op" || currentTokenType() == "div_op") {
+        std::shared_ptr<TypeStruct> additional;
+        // Determine what type of action to carry out
+        if (currentTokenType() == "mult_op") {
+            parseTreeOutputBuffer += "[TERM ";
+            // Do a multiplication
+            parseOperator();
+            additional = parseFactor();
+            // Determine what type of math we need to do
+            if (base->activeType == 'I') {
+                if (additional->activeType == 'I') {
+                    base->typeUnion.intType->setValue(
+                            base->typeUnion.intType->getValue() * additional->typeUnion.intType->getValue());
+                }
+                else {
+                    // In this case additional must be a float
+                    base->typeUnion.floatType->setValue(
+                            base->typeUnion.intType->getValue() * additional->typeUnion.floatType->getValue());
+                    base->activeType = 'F';
+                }
+            }
+            else {
+                if (additional->activeType != 'I') {
+                    base->typeUnion.floatType->setValue(
+                            base->typeUnion.floatType->getValue() * additional->typeUnion.intType->getValue());
+                }
+                else {
+                    base->typeUnion.floatType->setValue(
+                            base->typeUnion.floatType->getValue() * additional->typeUnion.floatType->getValue());
+                }
+            }
+            parseTreeOutputBuffer += "]";
+        }
+        else if (currentTokenType() == "div_op") {
+            parseTreeOutputBuffer += "[TERM ";
+            // Do a division
+            parseOperator();
+            additional = parseFactor();
+            if (base->activeType == 'I') {
+                if (additional->activeType == 'I') {
+                    // If they're both integers then check to see if we can perform an integer division
+                    if (base->typeUnion.intType->getValue() % additional->typeUnion.intType->getValue() == 0) {
+                        // Integer division
+                        base->typeUnion.intType->setValue(
+                                base->typeUnion.intType->getValue() / additional->typeUnion.intType->getValue());
+                    }
+                    else {
+                        base->typeUnion.floatType->setValue(
+                                ((float) base->typeUnion.intType->getValue()) /
+                                additional->typeUnion.intType->getValue());
+                        base->activeType = 'F';
+                    }
+                }
+                else {
+                    // Integer / float
+                    base->typeUnion.floatType->setValue(
+                            base->typeUnion.intType->getValue() / additional->typeUnion.floatType->getValue());
+                    base->activeType = 'F';
+                }
+            }
+            else {
+                if (additional->activeType == 'I') {
+                    base->typeUnion.floatType->setValue(
+                            base->typeUnion.floatType->getValue() / additional->typeUnion.intType->getValue());
+                }
+                else {
+                    base->typeUnion.floatType->setValue(
+                            base->typeUnion.floatType->getValue() / additional->typeUnion.floatType->getValue());
+                }
+            }
+            parseTreeOutputBuffer += "]";
+        }
+        // Otherwise stop
+    }
+    return base;
+
+}
+
+std::shared_ptr<TypeStruct> RuMParser::parseFactor() {
+    parseTreeOutputBuffer += "[FACTOR ";
+    std::shared_ptr<TypeStruct> base = parseNeg();
+    parseTreeOutputBuffer += "]";
+    if (currentTokenType() == "exponent_op") {
+        parseOperator();
+        std::shared_ptr<TypeStruct> power = parseFactor();
+        if (base->activeType == 'I') {
+            if (power->activeType == 'I') {
+                base->typeUnion.intType->setValue((int) std::pow(base->typeUnion.intType->getValue(),
+                                                                 power->typeUnion.intType->getValue()));
+            }
+            else {
+                base->typeUnion.floatType->setValue((float) std::pow(base->typeUnion.intType->getValue(),
+                                                                     power->typeUnion.floatType->getValue()));
+                base->activeType = 'F';
+            }
+        }
+        else {
+            if (power->activeType == 'I') {
+                base->typeUnion.floatType->setValue((float) std::pow(base->typeUnion.floatType->getValue(),
+                                                                     power->typeUnion.intType->getValue()));
+            }
+            else {
+                base->typeUnion.floatType->setValue(std::pow(base->typeUnion.floatType->getValue(),
+                                                             power->typeUnion.floatType->getValue()));
+            }
+        }
+    }
+    return base;
+
+}
+
+std::shared_ptr<TypeStruct> RuMParser::parseNeg() {
+    std::shared_ptr<TypeStruct> ret;
     parseTreeOutputBuffer += "[NEG ";
     if (currentTokenType() == "identifier") {
         // In this case it's either a variable or a function invocation
@@ -759,25 +729,25 @@ std::shared_ptr<type_union> RuMParser::parseNeg() {
             }
         }
     }
-        // Now we check to see if it's just a standard numeric type
     else if (currentTokenType() == "float" || currentTokenType() == "integer") {
         ret = parseNum();
     }
-        // If it starts with a negative sign then we need to multiply the next value by negative 1
     else if (currentTokenType() == "negative_op") {
-        // -<NEG>
+        // If it starts with a negative sign then we need to multiply the next value by negative 1
         parseOperator();
         // Capture the value and make it negative
         ret = parseNeg();
-        if (ret->intType != nullptr) {
-            ret->intType->setValue(ret->intType->getValue() * -1);
+        if (ret->activeType == 'I') {
+            ret->typeUnion.intType->setValue(ret->typeUnion.intType->getValue() * -1);
         }
-        else if (ret->floatType != nullptr) {
-            ret->floatType->setValue(ret->floatType->getValue() * -1);
+        else if (ret->activeType == 'F') {
+            ret->typeUnion.floatType->setValue(ret->typeUnion.floatType->getValue() * -1);
+        }
+        else if (ret->activeType == 'B') {
+            ret->typeUnion.boolType->setValue(!ret->typeUnion.boolType->getValue());
         }
         else {
-            throw std::runtime_error(
-                    "Inside parseNeg, expected a Type<int> or Type<float> but received something else");
+            throw std::runtime_error("Tried to use '-' operator on invalid type");
         }
     }
     else if (currentTokenType() == "open_paren") {
@@ -798,7 +768,6 @@ std::shared_ptr<type_union> RuMParser::parseNeg() {
                 + currentTokenType() + "'.");
     }
     parseTreeOutputBuffer += "]";
-    setLastExpression(ret); // TODO: This can be taken out and only set at the program level
     return ret;
 }
 
@@ -843,29 +812,31 @@ std::string RuMParser::parseIdentifier() {
     }
 }
 
-std::shared_ptr<Type<std::string>> RuMParser::parseString() {
+std::shared_ptr<TypeStruct> RuMParser::parseString() {
+    std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>();
     if (currentTokenType() == "string") {
         Token &token = tokenList->at(tokenListPosition);
         parseTreeOutputBuffer += "[STRING " + token.getLexeme() + "]";
         this->lastExpression = token.getLexeme();
         ++tokenListPosition;
-        return std::shared_ptr<Type<std::string>>(new Type<std::string>(token.getTokenType(), token.getLexeme()));
+        ret->typeUnion.stringType = new Type<std::string>("string", token.getLexeme());
     }
     else {
         throw std::runtime_error("Expected a 'string' but instead received '" + currentTokenType() + "'.");
     }
+    return ret;
 }
 
-std::shared_ptr<type_union> RuMParser::parseNum() {
-    std::shared_ptr<type_union> ret = std::make_shared<type_union>(new type_union());
+std::shared_ptr<TypeStruct> RuMParser::parseNum() {
+    std::shared_ptr<TypeStruct> ret;
     if (currentTokenType() == "integer") {
         parseTreeOutputBuffer += "[NUM ";
-        ret->intType = parseInt();
+        ret = parseInt();
         parseTreeOutputBuffer += "]";
     }
     else if (currentTokenType() == "float") {
         parseTreeOutputBuffer += "[NUM ";
-        ret->floatType = parseFloat();
+        ret = parseFloat();
         parseTreeOutputBuffer += "]";
     }
     else {
@@ -874,30 +845,36 @@ std::shared_ptr<type_union> RuMParser::parseNum() {
     return ret;
 }
 
-std::shared_ptr<Type<int>> RuMParser::parseInt() {
+std::shared_ptr<TypeStruct> RuMParser::parseInt() {
+    std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>();
     if (currentTokenType() == "integer") {
         Token &token = tokenList->at(tokenListPosition);
         parseTreeOutputBuffer += "[INT " + token.getLexeme() + "]";
         this->lastExpression = token.getLexeme();
         ++tokenListPosition;
-        return std::make_shared<Type<int>>(token.getTokenType(), std::stoi(token.getLexeme()));
+        ret->typeUnion.intType = new Type<int>(token.getTokenType(), std::stoi(token.getLexeme()));
+        ret->activeType = 'I';
     }
     else {
         throw std::runtime_error("Expected 'int' and received '" + currentTokenType() + "'.");
     }
+    return ret;
 }
 
-std::shared_ptr<Type<float>> RuMParser::parseFloat() {
+std::shared_ptr<TypeStruct> RuMParser::parseFloat() {
+    std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>();
     if (currentTokenType() == "float") {
         Token &token = tokenList->at(tokenListPosition);
         parseTreeOutputBuffer += "[FLOAT " + token.getLexeme() + "]";
         this->lastExpression = token.getLexeme();
         ++tokenListPosition;
-        return std::shared_ptr<Type<float>>(new Type<float>(token.getTokenType(), std::stof(token.getLexeme())));
+        ret->typeUnion.floatType = new Type<float>(token.getTokenType(), std::stof(token.getLexeme()));
+        ret->activeType = 'F';
     }
     else {
         throw std::runtime_error("Expected 'float' and received '" + currentTokenType() + "'.");
     }
+    return ret;
 }
 
 

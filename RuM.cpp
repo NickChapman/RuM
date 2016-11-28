@@ -108,7 +108,10 @@ void RuMInterpreter::fillInputBuffer() {
             std::cout << e.what() << std::endl;
         }
         // We check to make sure that the input hasn't ended with a dollar sign
-        if (inputBuffer.at(inputBuffer.size() - 1) == this->END_CHAR) {
+        if(inputBuffer == "") {
+            std::cout << INTERPRETER_PROMPT_NEW << " " << std::flush;
+        }
+        else if (inputBuffer.at(inputBuffer.size() - 1) == this->END_CHAR) {
             endOfInputReached = true;
         }
         else {
@@ -304,6 +307,10 @@ void RuMInterpreter::interactiveMode() {
             }
             currentCharacterIndex = 0;
             // Check to see if they have asked to exit
+            if(tokenList->size() < 2) {
+                // They didn't do anything
+                continue;
+            }
             if (tokenList->at(tokenList->size() - 2).getTokenType() == "exit_token") {
                 std::cout << "Goodbye!" << std::endl;
                 break;
@@ -311,10 +318,12 @@ void RuMInterpreter::interactiveMode() {
             // Parse the input
             parse();
         }
-        catch (const std::runtime_error e) {
+        catch (const std::runtime_error& e) {
             std::cout << e.what() << std::endl;
         }
-
+        catch(std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
     }
 }
 
