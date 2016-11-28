@@ -104,11 +104,11 @@ void RuMInterpreter::fillInputBuffer() {
             inputBuffer += inputCharBuffer;
             delete[] inputCharBuffer;
         }
-        catch (std::runtime_error e) {
+        catch (const std::runtime_error e) {
             std::cout << e.what() << std::endl;
         }
         // We check to make sure that the input hasn't ended with a dollar sign
-        if(inputBuffer == "") {
+        if (inputBuffer == "") {
             std::cout << INTERPRETER_PROMPT_NEW << " " << std::flush;
         }
         else if (inputBuffer.at(inputBuffer.size() - 1) == this->END_CHAR) {
@@ -150,7 +150,7 @@ void RuMInterpreter::tokenize() {
             }
         }
     }
-    catch (std::exception e) {
+    catch (const std::exception& e) {
         std::cout << e.what() << std::endl;
     }
 }
@@ -220,6 +220,11 @@ bool RuMInterpreter::specialToken() {
         tokenCharacters.push_back(currentCharacter());
         ++currentCharacterIndex;
     }
+    // Special case for when we are trying to catch a "&&"
+    if(tokenCharacters == "&" && currentCharacter() == '&') {
+        tokenCharacters.push_back(currentCharacter());
+        ++currentCharacterIndex;
+    }
     if (operatorToken(tokenCharacters)) {
         return true;
     }
@@ -231,12 +236,13 @@ bool RuMInterpreter::specialToken() {
     // We have checked the one character tokens. Let's check the two character tokens
     if (currentCharacterIndex != inputBuffer.size()) {
         tokenCharacters.push_back(currentCharacter());
+        ++currentCharacterIndex;
     }
     if (operatorToken(tokenCharacters)) {
         return true;
     }
     // It wasn't a special character so we will need to back up to undo the move forward that we made
-    currentCharacterIndex -= 1;
+    --currentCharacterIndex;
     return false;
 }
 
@@ -299,7 +305,7 @@ void RuMInterpreter::interactiveMode() {
             std::cout << INTERPRETER_PROMPT_NEW << " " << std::flush;
             fillInputBuffer();
             tokenize();
-            if(displayTokenization) {
+            if (displayTokenization) {
                 for (; tokenListPosition < tokenList->size() - 1; ++tokenListPosition) {
                     std::cout << "Token encountered: " << tokenList->at(tokenListPosition).getLexeme();
                     std::cout << " . Category: " << tokenList->at(tokenListPosition).getTokenType() << std::endl;
@@ -307,7 +313,7 @@ void RuMInterpreter::interactiveMode() {
             }
             currentCharacterIndex = 0;
             // Check to see if they have asked to exit
-            if(tokenList->size() < 2) {
+            if (tokenList->size() < 2) {
                 // They didn't do anything
                 continue;
             }
@@ -318,10 +324,10 @@ void RuMInterpreter::interactiveMode() {
             // Parse the input
             parse();
         }
-        catch (const std::runtime_error& e) {
+        catch (const std::runtime_error &e) {
             std::cout << e.what() << std::endl;
         }
-        catch(std::exception& e) {
+        catch (const std::exception &e) {
             std::cout << e.what() << std::endl;
         }
     }
@@ -351,7 +357,7 @@ void RuMInterpreter::fileMode(char *filename) {
     }
 }
 
-void RuMInterpreter::setDisplayParseTree(bool display){
+void RuMInterpreter::setDisplayParseTree(bool display) {
     this->parser.setDisplayParseTree(display);
 }
 
@@ -363,7 +369,7 @@ void RuMInterpreter::parse() {
     try {
         this->parser.parseProgram();
     }
-    catch (std::runtime_error e) {
+    catch (const std::runtime_error& e) {
         std::cout << e.what() << std::endl;
         parser.reset();
     }

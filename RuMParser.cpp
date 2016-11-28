@@ -2,9 +2,10 @@
 // Created by Nick Chapman on 10/27/16.
 //
 
+#include<iostream>
+#include <bootstrap.h>
 #include "RuMParser.h"
-#include "RuM.h"
-#include "Type.h"
+#include "BooleanComparisons.h"
 
 // We don't actually do anything in this case
 // We need a token list in order to do anything
@@ -77,7 +78,7 @@ std::string RuMParser::currentTokenType() {
     return tokenList->at(tokenListPosition).getTokenType();
 }
 
-void RuMParser::setLastExpression(std::shared_ptr<TypeStruct>& expression) {
+void RuMParser::setLastExpression(std::shared_ptr<TypeStruct> &expression) {
     switch (expression->activeType) {
         case 'I':
             this->lastExpression = std::to_string(expression->typeUnion.intType->getValue());
@@ -505,53 +506,89 @@ std::shared_ptr<TypeStruct> RuMParser::parseExpr() {
     return nullptr; // TODO
 }
 
-void RuMParser::parseBool() {
+std::shared_ptr<TypeStruct> RuMParser::parseBool() {
     parseTreeOutputBuffer += "[BOOL ";
-    parseBoolTerm();
-    parseBoolPrime();
-    parseTreeOutputBuffer += "]";
-}
-
-void RuMParser::parseBoolPrime() {
-    // TODO: Eliminate this
-    while (currentTokenType() == "bool_equals" ||
-           currentTokenType() == "bool_lessthan" ||
-           currentTokenType() == "bool_greaterthan" ||
-           currentTokenType() == "bool_and" ||
-           currentTokenType() == "bool_or") {
-        parseTreeOutputBuffer += "[BOOL' ";
-        parseOperator();
-        parseBoolTerm();
+    std::shared_ptr<TypeStruct> base = parseBoolTerm();
+    // Now we have to deal with boolean operations
+    if (currentTokenType() == "bool_equals" ||
+        currentTokenType() == "bool_lessthan" ||
+        currentTokenType() == "bool_greaterthan" ||
+        currentTokenType() == "bool_and" ||
+        currentTokenType() == "bool_or") {
+        // TODO: Test to make sure the result constructor produces a deep copy
+        std::shared_ptr<TypeStruct> result = std::make_shared<TypeStruct>(base);
+        std::shared_ptr<TypeStruct> additional;
+        while (currentTokenType() == "bool_equals" ||
+               currentTokenType() == "bool_lessthan" ||
+               currentTokenType() == "bool_greaterthan" ||
+               currentTokenType() == "bool_and" ||
+               currentTokenType() == "bool_or") {
+            std::string operation = currentTokenType();
+            parseOperator();
+            // Handle each case
+            if (operation == "bool_equals") {
+                additional = parseBoolTerm();
+                result->typeUnion.boolType->setValue(BOOL::equals(result, additional));
+                result->activeType = 'B';
+            }
+            else if (operation == "bool_lessthan") {
+                additional = parseBoolTerm();
+                result->typeUnion.boolType->setValue(BOOL::lessThan(result, additional));
+                result->activeType = 'B';
+            }
+            else if (operation == "bool_greaterthan") {
+                additional = parseBoolTerm();
+                result->typeUnion.boolType->setValue(BOOL::greaterThan(result, additional));
+                result->activeType = 'B';
+            }
+            else if (operation == "bool_and") {
+                additional = parseBoolTerm();
+                result->typeUnion.boolType->setValue(BOOL::logicalAnd(result, additional));
+                result->activeType = 'B';
+            }
+            else if (operation == "bool_or") {
+                additional = parseBoolTerm();
+                result->typeUnion.boolType->setValue(BOOL::logicalOr(result, additional));
+                result->activeType = 'B';
+            }
+        }
         parseTreeOutputBuffer += "]";
+        setLastExpression(result);
+        return result;
+    }
+    else {
+        parseTreeOutputBuffer += "]";
+        setLastExpression(base);
+        return base;
     }
 }
 
 std::shared_ptr<TypeStruct> RuMParser::parseBoolTerm() {
     // TODO: Add support for `NULL`
     parseTreeOutputBuffer += "[BOOL-TERM ";
-    std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>();
+    std::shared_ptr<TypeStruct> base = std::make_shared<TypeStruct>();
     if (currentTokenType() == "true_key") {
         parseKeyword();
-        ret->typeUnion.boolType = new Type<bool>("boolean", true);
-        ret->activeType = 'B';
+        base->typeUnion.boolType = new Type<bool>("boolean", true);
+        base->activeType = 'B';
     }
-    else if(currentTokenType() == "false_key") {
+    else if (currentTokenType() == "false_key") {
         parseKeyword();
-        ret->typeUnion.boolType = new Type<bool>("boolean", false);
-        ret->activeType = 'B';
+        base->typeUnion.boolType = new Type<bool>("boolean", false);
+        base->activeType = 'B';
     }
     else if (currentTokenType() == "string") {
-        ret = parseString();
+        base = parseString();
     }
     else {
-        ret = parseMathExpr();
+        base = parseMathExpr();
     }
     parseTreeOutputBuffer += "]";
-    setLastExpression(ret);
-    return ret;
+    return base;
 }
 
 std::shared_ptr<TypeStruct> RuMParser::parseMathExpr() {
+    // TODO: Don't modify the base
     parseTreeOutputBuffer += "[MATH-EXPR ";
     std::shared_ptr<TypeStruct> base = parseTerm();
     while (currentTokenType() == "plus_op" || currentTokenType() == "negative_op") {
@@ -595,6 +632,7 @@ std::shared_ptr<TypeStruct> RuMParser::parseMathExpr() {
 }
 
 std::shared_ptr<TypeStruct> RuMParser::parseTerm() {
+    // TODO: Don't modify the base
     parseTreeOutputBuffer += "[TERM ";
     std::shared_ptr<TypeStruct> base = parseFactor();
     parseTreeOutputBuffer += "]";
@@ -677,33 +715,36 @@ std::shared_ptr<TypeStruct> RuMParser::parseTerm() {
 }
 
 std::shared_ptr<TypeStruct> RuMParser::parseFactor() {
+    // TODO: Don't modify the base
     parseTreeOutputBuffer += "[FACTOR ";
     std::shared_ptr<TypeStruct> base = parseNeg();
     parseTreeOutputBuffer += "]";
     if (currentTokenType() == "exponent_op") {
+        std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>(base);
         parseOperator();
         std::shared_ptr<TypeStruct> power = parseFactor();
-        if (base->activeType == 'I') {
+        if (ret->activeType == 'I') {
             if (power->activeType == 'I') {
-                base->typeUnion.intType->setValue((int) std::pow(base->typeUnion.intType->getValue(),
+                ret->typeUnion.intType->setValue((int) std::pow(ret->typeUnion.intType->getValue(),
                                                                  power->typeUnion.intType->getValue()));
             }
             else {
-                base->typeUnion.floatType->setValue((float) std::pow(base->typeUnion.intType->getValue(),
+                ret->typeUnion.floatType->setValue((float) std::pow(ret->typeUnion.intType->getValue(),
                                                                      power->typeUnion.floatType->getValue()));
-                base->activeType = 'F';
+                ret->activeType = 'F';
             }
         }
         else {
             if (power->activeType == 'I') {
-                base->typeUnion.floatType->setValue((float) std::pow(base->typeUnion.floatType->getValue(),
+                ret->typeUnion.floatType->setValue((float) std::pow(ret->typeUnion.floatType->getValue(),
                                                                      power->typeUnion.intType->getValue()));
             }
             else {
-                base->typeUnion.floatType->setValue(std::pow(base->typeUnion.floatType->getValue(),
+                ret->typeUnion.floatType->setValue(std::pow(ret->typeUnion.floatType->getValue(),
                                                              power->typeUnion.floatType->getValue()));
             }
         }
+        return ret;
     }
     return base;
 
@@ -736,7 +777,7 @@ std::shared_ptr<TypeStruct> RuMParser::parseNeg() {
         // If it starts with a negative sign then we need to multiply the next value by negative 1
         parseOperator();
         // Capture the value and make it negative
-        ret = parseNeg();
+        ret = std::make_shared<TypeStruct>(parseNeg());
         if (ret->activeType == 'I') {
             ret->typeUnion.intType->setValue(ret->typeUnion.intType->getValue() * -1);
         }
@@ -820,6 +861,7 @@ std::shared_ptr<TypeStruct> RuMParser::parseString() {
         this->lastExpression = token.getLexeme();
         ++tokenListPosition;
         ret->typeUnion.stringType = new Type<std::string>("string", token.getLexeme());
+        ret->activeType = 'S';
     }
     else {
         throw std::runtime_error("Expected a 'string' but instead received '" + currentTokenType() + "'.");

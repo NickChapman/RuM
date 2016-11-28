@@ -11,7 +11,7 @@
 
 int main(int argc, char* argv[]) {
     RuMInterpreter interpreter;
-    interpreter.setDisplayParseTree(true);
+    interpreter.setDisplayParseTree(false);
     if (argc == 2) {
         // Pass the filename to the interpreter
         try {

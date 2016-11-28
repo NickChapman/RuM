@@ -63,9 +63,7 @@ class RuMParser {
 
     std::shared_ptr<TypeStruct> parseExpr();
 
-    void parseBool();
-
-    void parseBoolPrime();
+    std::shared_ptr<TypeStruct> parseBool();
 
     std::shared_ptr<TypeStruct> parseBoolTerm();
 
