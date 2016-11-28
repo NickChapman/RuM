@@ -4,6 +4,7 @@
 
 #include "RuMParser.h"
 #include "RuM.h"
+#include "Type.h"
 
 // We don't actually do anything in this case
 // We need a token list in order to do anything
@@ -13,6 +14,9 @@ RuMParser::RuMParser(std::shared_ptr<std::vector<Token>> tokenList) {
     this->tokenList = tokenList;
     this->tokenListPosition = 0;
     this->parseTreeOutputBuffer = "";
+    this->lastExpression = "";
+
+    this->globalScope = Scope();
 
     // Build our keyword parsing map
     keywordParseMap["if_key"] = "[keyword if]";
@@ -73,6 +77,24 @@ std::string RuMParser::currentTokenType() {
     return tokenList->at(tokenListPosition).getTokenType();
 }
 
+void RuMParser::setLastExpression(std::shared_ptr<type_union> expression) {
+    if (expression->intType != nullptr) {
+        lastExpression = std::to_string(expression->intType->getValue());
+    }
+    else if (expression->floatType != nullptr) {
+        lastExpression = std::to_string(expression->floatType->getValue());
+    }
+    else if (expression->boolType != nullptr) {
+        lastExpression = std::to_string(expression->boolType->getValue());
+    }
+    else if (expression->stringType != nullptr) {
+        lastExpression = expression->stringType->getValue();
+    }
+    else {
+        lastExpression = "nullptr";
+    }
+}
+
 void RuMParser::reset() {
     this->parseTreeOutputBuffer = "";
     this->tokenListPosition = 0;
@@ -86,6 +108,7 @@ void RuMParser::parseProgram() {
         std::cout << "CONSTRUCTED PARSE TREE:" << std::endl;
         std::cout << parseTreeOutputBuffer << std::endl;
     }
+    std::cout << lastExpression << std::endl;
     reset();
 }
 
@@ -126,10 +149,10 @@ void RuMParser::parseStmt() {
     parseTreeOutputBuffer += "]";
 }
 
-void RuMParser::parseAssign() {
+std::string RuMParser::parseAssign() {
     parseTreeOutputBuffer += "[ASSIGN ";
     if (currentTokenType() == "identifier") {
-        parseVar();
+        std::string identifier = parseVar();
         if (currentTokenType() == "assignment_op") {
             parseOperator();
             parseArg();
@@ -212,7 +235,7 @@ void RuMParser::parseFunc() {
     parseTreeOutputBuffer += "]";
 }
 
-void RuMParser::parseInvoke() {
+std::shared_ptr<type_union> RuMParser::parseInvoke() {
     parseTreeOutputBuffer += "[INVOKE ";
     if (currentTokenType() == "identifier") {
         parseIdentifier();
@@ -351,6 +374,7 @@ void RuMParser::parseClassBlock() {
     parseTreeOutputBuffer += "]";
 }
 
+
 void RuMParser::parseClassItem() {
     parseTreeOutputBuffer += "[CLASS-ITEM ";
     if (currentTokenType() == "function_key") {
@@ -364,8 +388,7 @@ void RuMParser::parseClassItem() {
     parseTreeOutputBuffer += "]";
 }
 
-
-void RuMParser::parseClassAccess() {
+std::shared_ptr<type_union> RuMParser::parseClassAccess() {
     parseTreeOutputBuffer += "[CLASS-ACCESS ";
     if (currentTokenType() == "identifier") {
         parseVar();
@@ -378,7 +401,7 @@ void RuMParser::parseClassAccess() {
 }
 
 void RuMParser::parseClassAccessPrime() {
-    while (currentTokenType() == "dop_op") {
+    while (currentTokenType() == "dot_op") {
         parseTreeOutputBuffer += "[CLASS-ACCESS' ";
         parseOperator();
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
@@ -462,7 +485,7 @@ void RuMParser::parseIfStmt() {
     }
 }
 
-void RuMParser::parseExpr() {
+std::shared_ptr<type_union> RuMParser::parseExpr() {
     parseTreeOutputBuffer += "[EXPR ";
     if (currentTokenType() == "bool_not") {
         parseOperator();
@@ -510,14 +533,14 @@ void RuMParser::parseBoolTerm() {
     parseTreeOutputBuffer += "]";
 }
 
-void RuMParser::parseMathExpr() {
+std::shared_ptr<type_union> RuMParser::parseMathExpr() {
     parseTreeOutputBuffer += "[MATH-EXPR ";
     parseTerm();
     parseMathExprPrime();
     parseTreeOutputBuffer += "]";
 }
 
-void RuMParser::parseMathExprPrime() {
+std::shared_ptr<type_union> RuMParser::parseMathExprPrime() {
     // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
     if (currentTokenType() == "plus_op" ||
         currentTokenType() == "negative_op") {
@@ -528,68 +551,239 @@ void RuMParser::parseMathExprPrime() {
     }
 }
 
-void RuMParser::parseTerm() {
-    parseTreeOutputBuffer += "[TERM ";
-    parseFactor();
-    parseTermPrime();
-    parseTreeOutputBuffer += "]";
-}
-
-void RuMParser::parseTermPrime() {
-    // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
-    if (currentTokenType() == "mult_op" ||
-        currentTokenType() == "div_op") {
-        parseTreeOutputBuffer += "[TERM' ";
-        parseOperator();
-        parseFactor();
+std::shared_ptr<type_union> RuMParser::parseTerm() {
+    try {
+        parseTreeOutputBuffer += "[TERM ";
+        std::shared_ptr<type_union> base = parseFactor();
         parseTreeOutputBuffer += "]";
+        while (currentTokenType() == "mult_op" || currentTokenType() == "div_op") {
+            std::shared_ptr<type_union> additional;
+            // Determine what type of action to carry out
+            if (currentTokenType() == "mult_op") {
+                parseTreeOutputBuffer += "[TERM ";
+                // Do a multiplication
+                parseOperator();
+                additional = parseFactor();
+                // Determine what type of math we need to do
+                if (base->intType != nullptr) {
+                    if (additional->intType != nullptr) {
+                        base->intType->setValue(base->intType->getValue() * additional->intType->getValue());
+                    }
+                    else {
+                        // if (additional->floatType != nullptr)
+                        base->floatType->setValue(base->intType->getValue() * additional->floatType->getValue());
+                        base->intType = nullptr;
+                    }
+                }
+                else {
+                    // if (base->floatType != nullptr)
+                    if (additional->intType != nullptr) {
+                        base->floatType->setValue(base->floatType->getValue() * additional->intType->getValue());
+                    }
+                    else {
+                        //if (additional->floatType != nullptr)
+                        base->floatType->setValue(base->floatType->getValue() * additional->floatType->getValue());
+                    }
+                }
+                parseTreeOutputBuffer += "]";
+            }
+            else if (currentTokenType() == "div_op") {
+                parseTreeOutputBuffer += "[TERM ";
+                // Do a division
+                parseOperator();
+                additional = parseFactor();
+                if (base->intType != nullptr) {
+                    if (additional->intType != nullptr) {
+                        // If they're both integers then check to see if we can perform an integer division
+                        if (base->intType->getValue() % additional->intType->getValue() == 0) {
+                            // Integer division
+                            base->intType->setValue(base->intType->getValue() / additional->intType->getValue());
+                        }
+                        else {
+                            base->floatType->setValue(
+                                    ((float) base->intType->getValue()) / additional->intType->getValue());
+                            base->intType = nullptr;
+                        }
+                    }
+                    else {
+                        // if (additional->floatType != nullptr)
+                        // Integer / float
+                        base->floatType->setValue(base->intType->getValue() / additional->floatType->getValue());
+                        base->intType = nullptr;
+                    }
+                }
+                else {
+                    //if (base->floatType != nullptr)
+                    if (additional->intType != nullptr) {
+                        base->floatType->setValue(base->floatType->getValue() / additional->intType->getValue());
+                    }
+                    else {
+                        //if (additional->floatType != nullptr)
+                        base->floatType->setValue(base->floatType->getValue() / additional->floatType->getValue());
+                    }
+                }
+            }
+            // Otherwise stop
+            parseTreeOutputBuffer += "]";
+        }
+        setLastExpression(base);
+        return base;
+    }
+        // If we reach this catch statement then that means that someone tried to do a multiplication or division with a string
+    catch (std::runtime_error e) {
+        throw std::runtime_error(
+                "RuMParser::parseTerm: Expected integer or float math but instead received string or boolean.");
     }
 }
 
-void RuMParser::parseFactor() {
+//std::shared_ptr<type_union> RuMParser::parseTermPrime() {
+//    // This is used to eliminate left recursion and get appropriate associativity for multiplication and division
+//    while (currentTokenType() == "mult_op" || currentTokenType() == "div_op") {
+//        parseTreeOutputBuffer += "[TERM' ";
+//        parseOperator();
+//        parseFactor();
+//        parseTreeOutputBuffer += "]";
+//    }
+//}
+
+std::shared_ptr<type_union> RuMParser::parseFactor() {
     parseTreeOutputBuffer += "[FACTOR ";
-    parseNeg();
-    parseFactorPrime();
+    std::shared_ptr<type_union> factorRet = parseNeg();
+    // Now we need to determine what we need to do next
+    std::string nextOperation = currentTokenType();
+    std::shared_ptr<type_union> factorPrimeRet = parseFactorPrime();
+    if (factorPrimeRet != nullptr) {
+        if (factorRet->intType != nullptr) {
+            if (factorPrimeRet->intType != nullptr) {
+                factorRet->intType->setValue(
+                        (int) std::pow(factorRet->intType->getValue(), factorPrimeRet->intType->getValue()));
+            }
+            else if (factorPrimeRet->floatType != nullptr) {
+                factorRet->floatType->setValue(
+                        (float) std::pow(factorRet->intType->getValue(), factorPrimeRet->floatType->getValue()));
+                factorRet->intType = nullptr;
+            }
+            else {
+                throw std::runtime_error(
+                        "RuMParser::parseFactor: Expected integer or float math but found string or boolean");
+            }
+        }
+        else if (factorRet->floatType != nullptr) {
+            if (factorPrimeRet->intType) {
+                factorRet->floatType->setValue(
+                        (float) std::pow(factorRet->floatType->getValue(), factorPrimeRet->intType->getValue()));
+            }
+            else if (factorPrimeRet->floatType != nullptr) {
+                factorRet->floatType->setValue(
+                        std::pow(factorRet->floatType->getValue(), factorPrimeRet->floatType->getValue()));
+            }
+            else {
+                throw std::runtime_error(
+                        "RuMParser::parseFactor: Expected integer or float math but found string or boolean");
+            }
+        }
+        else {
+            throw std::runtime_error(
+                    "RuMParser::parseFactor: Expected integer or float math but found string or boolean");
+        }
+    }
     parseTreeOutputBuffer += "]";
+    setLastExpression(factorRet);
+    return factorRet;
 }
 
-void RuMParser::parseFactorPrime() {
+std::shared_ptr<type_union> RuMParser::parseFactorPrime() {
+    // TODO: THIS IS NOT GOING TO WORK
     // This is used to eliminate left recursion and get appropriate associativity for exponentiation
-    while (currentTokenType() == "exponent_op") {
+    std::shared_ptr<type_union> base = nullptr;
+    if (currentTokenType() == "exponent_op") {
         parseTreeOutputBuffer += "[FACTOR' ";
         parseOperator();
-        parseNeg();
+        base = parseNeg();
         parseTreeOutputBuffer += "]";
     }
+    while (currentTokenType() == "exponent_op") {
+        std::shared_ptr<type_union> additional;
+        parseTreeOutputBuffer += "[FACTOR' ";
+        parseOperator();
+        additional = parseNeg();
+        // Incorporate this into the base
+        if (base->intType != nullptr) {
+            if (additional->intType != nullptr) {
+                base->intType->setValue((int) std::pow(base->intType->getValue(), additional->intType->getValue()));
+            }
+            else if (additional->floatType != nullptr) {
+                base->floatType->setValue((float) std::pow(base->intType->getValue(), additional->floatType->getValue()));
+                base->intType = nullptr;
+            }
+            else {
+                throw std::runtime_error(
+                        "RuMParser::parseFactorPrime: Expected integer or float math but instead received string or boolean.");
+            }
+        }
+        else if (base->floatType != nullptr) {
+            if (additional->intType != nullptr) {
+                base->floatType->setValue((float) std::pow(base->intType->getValue(), additional->intType->getValue()));
+            }
+            else if (additional->floatType != nullptr) {
+                base->floatType->setValue((float) std::pow(base->intType->getValue(), additional->floatType->getValue()));
+            }
+            else {
+                throw std::runtime_error(
+                        "RuMParser::parseFactorPrime: Expected integer or float math but instead received string or boolean.");
+            }
+        }
+        parseTreeOutputBuffer += "]";
+    }
+    return base;
 }
 
-void RuMParser::parseNeg() {
+std::shared_ptr<type_union> RuMParser::parseNeg() {
+    // TODO: NEG NEEDS A MAJOR OVERHAUL
+    std::shared_ptr<type_union> ret = std::make_shared<type_union>();
     parseTreeOutputBuffer += "[NEG ";
     if (currentTokenType() == "identifier") {
         // In this case it's either a variable or a function invocation
         // If the next token is a '(' it's a function invocation
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
-            parseInvoke();
-        }
+            ret = parseInvoke();
+        }// If the next token is a '.' then it's a class access
         else if (tokenList->at(tokenListPosition + 1).getTokenType() == "dot_op") {
-            parseClassAccess();
-        }
+            ret = parseClassAccess();
+        }// If it was neither of the previous then it's just a normal variable reference
         else {
-            parseVar();
+            std::string identifier = parseVar();
+            ret = this->globalScope.getVariable(identifier);
+            if (ret == nullptr) {
+                throw std::runtime_error("Reference to undefined variable " + identifier);
+            }
         }
     }
+        // Now we check to see if it's just a standard numeric type
     else if (currentTokenType() == "float" || currentTokenType() == "integer") {
-        parseNum();
+        ret = parseNum();
     }
+        // If it starts with a negative sign then we need to multiply the next value by negative 1
     else if (currentTokenType() == "negative_op") {
         // -<NEG>
         parseOperator();
-        parseNeg();
+        // Capture the value and make it negative
+        ret = parseNeg();
+        if (ret->intType != nullptr) {
+            ret->intType->setValue(ret->intType->getValue() * -1);
+        }
+        else if (ret->floatType != nullptr) {
+            ret->floatType->setValue(ret->floatType->getValue() * -1);
+        }
+        else {
+            throw std::runtime_error(
+                    "Inside parseNeg, expected a Type<int> or Type<float> but received something else");
+        }
     }
     else if (currentTokenType() == "open_paren") {
         // (<EXPR>)
         parseOperator();
-        parseExpr();
+        ret = parseExpr();
         // After parsing the expression we should now be on a ')'
         if (currentTokenType() == "close_paren") {
             parseOperator();
@@ -604,6 +798,8 @@ void RuMParser::parseNeg() {
                 + currentTokenType() + "'.");
     }
     parseTreeOutputBuffer += "]";
+    setLastExpression(ret); // TODO: This can be taken out and only set at the program level
+    return ret;
 }
 
 void RuMParser::parseList() {
@@ -625,67 +821,85 @@ void RuMParser::parseList() {
     }
 }
 
-void RuMParser::parseVar() {
+std::string RuMParser::parseVar() {
     parseTreeOutputBuffer += "[VAR ";
-    parseIdentifier();
+    std::string identifier = parseIdentifier();
+    Token &token = tokenList->at(tokenListPosition);
+    this->lastExpression = identifier;
     parseTreeOutputBuffer += "]";
+    return identifier;
 }
 
-void RuMParser::parseIdentifier() {
+std::string RuMParser::parseIdentifier() {
     if (currentTokenType() == "identifier") {
-        parseTreeOutputBuffer += "[identifier " + tokenList->at(tokenListPosition).getLexeme() + "]";
+        Token &token = tokenList->at(tokenListPosition);
+        parseTreeOutputBuffer += "[identifier " + token.getLexeme() + "]";
+        this->lastExpression = token.getLexeme();
         ++tokenListPosition;
+        return token.getLexeme();
     }
     else {
         throw std::runtime_error("Expected an 'identifier' but instead received '" + currentTokenType() + "'.");
     }
 }
 
-void RuMParser::parseString() {
+std::shared_ptr<Type<std::string>> RuMParser::parseString() {
     if (currentTokenType() == "string") {
-        parseTreeOutputBuffer += "[STRING " + tokenList->at(tokenListPosition).getLexeme() + "]";
+        Token &token = tokenList->at(tokenListPosition);
+        parseTreeOutputBuffer += "[STRING " + token.getLexeme() + "]";
+        this->lastExpression = token.getLexeme();
         ++tokenListPosition;
+        return std::shared_ptr<Type<std::string>>(new Type<std::string>(token.getTokenType(), token.getLexeme()));
     }
     else {
         throw std::runtime_error("Expected a 'string' but instead received '" + currentTokenType() + "'.");
     }
 }
 
-void RuMParser::parseNum() {
+std::shared_ptr<type_union> RuMParser::parseNum() {
+    std::shared_ptr<type_union> ret = std::make_shared<type_union>(new type_union());
     if (currentTokenType() == "integer") {
         parseTreeOutputBuffer += "[NUM ";
-        parseInt();
+        ret->intType = parseInt();
         parseTreeOutputBuffer += "]";
     }
     else if (currentTokenType() == "float") {
         parseTreeOutputBuffer += "[NUM ";
-        parseFloat();
+        ret->floatType = parseFloat();
         parseTreeOutputBuffer += "]";
     }
     else {
         throw std::runtime_error("Expected a 'float' or an 'int' but instead received '" + currentTokenType() + "'.");
     }
+    return ret;
 }
 
-void RuMParser::parseInt() {
+std::shared_ptr<Type<int>> RuMParser::parseInt() {
     if (currentTokenType() == "integer") {
-        parseTreeOutputBuffer += "[INT " + tokenList->at(tokenListPosition).getLexeme() + "]";
+        Token &token = tokenList->at(tokenListPosition);
+        parseTreeOutputBuffer += "[INT " + token.getLexeme() + "]";
+        this->lastExpression = token.getLexeme();
         ++tokenListPosition;
+        return std::make_shared<Type<int>>(token.getTokenType(), std::stoi(token.getLexeme()));
     }
     else {
         throw std::runtime_error("Expected 'int' and received '" + currentTokenType() + "'.");
     }
 }
 
-void RuMParser::parseFloat() {
+std::shared_ptr<Type<float>> RuMParser::parseFloat() {
     if (currentTokenType() == "float") {
-        parseTreeOutputBuffer += "[FLOAT " + tokenList->at(tokenListPosition).getLexeme() + "]";
+        Token &token = tokenList->at(tokenListPosition);
+        parseTreeOutputBuffer += "[FLOAT " + token.getLexeme() + "]";
+        this->lastExpression = token.getLexeme();
         ++tokenListPosition;
+        return std::shared_ptr<Type<float>>(new Type<float>(token.getTokenType(), std::stof(token.getLexeme())));
     }
     else {
         throw std::runtime_error("Expected 'float' and received '" + currentTokenType() + "'.");
     }
 }
+
 
 void RuMParser::parseKeyword() {
     if (keywordParseMap.count(currentTokenType()) != 0) {
@@ -697,7 +911,6 @@ void RuMParser::parseKeyword() {
                 "Expected a keyword token but instead received a token of type '" + currentTokenType() + "'.");
     }
 }
-
 
 void RuMParser::parseOperator() {
     if (operatorParseMap.count(currentTokenType()) != 0) {

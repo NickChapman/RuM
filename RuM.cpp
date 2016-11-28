@@ -17,15 +17,9 @@ RuMInterpreter::RuMInterpreter() {
     this->isInteractiveMode = false;
     inputBuffer = std::string();
     currentCharacterIndex = 0;
-    outputBuffer = new char[MAX_OUTPUT_SIZE];
-    outputPosition = outputBuffer;
     tokenListPosition = 0;
     tokenList = std::shared_ptr<std::vector<Token>>(new std::vector<Token>());
 
-    // We have to null out the buffers so they don't contain junk values
-    for (int i = 0; i < MAX_OUTPUT_SIZE; ++i) {
-        outputBuffer[i] = NULL_CHAR;
-    }
     // Fill in our keyword map
     keywordMap["if"] = "if_key";
     keywordMap["else"] = "else_key";

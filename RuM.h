@@ -23,8 +23,6 @@ class RuMInterpreter {
 
     std::string inputBuffer;
     unsigned long currentCharacterIndex;
-    char *outputBuffer;
-    char *outputPosition;
     std::shared_ptr<std::vector<Token>> tokenList;
     int tokenListPosition;
     RuMParser parser;

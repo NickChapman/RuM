@@ -10,6 +10,8 @@
 #include <string>
 #include <unordered_map>
 #include "Token.h"
+#include "Type.h"
+#include "Scope.h"
 
 class RuMParser {
     std::shared_ptr<std::vector<Token>> tokenList;
@@ -18,19 +20,24 @@ class RuMParser {
     bool displayParseTree = false;
     std::unordered_map<std::string, std::string> keywordParseMap;
     std::unordered_map<std::string, std::string> operatorParseMap;
+    std::string lastExpression;
+
+    Scope globalScope;
 
     // Helper functions
     std::string currentTokenType();
+
+    void setLastExpression(std::shared_ptr<type_union> expression);
 
     void parseStmtList();
 
     void parseStmt();
 
-    void parseAssign();
+    std::string parseAssign();
 
     void parseFunc();
 
-    void parseInvoke();
+    std::shared_ptr<type_union> parseInvoke();
 
     void parseArgList();
 
@@ -46,7 +53,7 @@ class RuMParser {
 
     void parseClassItem();
 
-    void parseClassAccess();
+    std::shared_ptr<type_union> parseClassAccess();
 
     void parseClassAccessPrime();
 
@@ -54,7 +61,7 @@ class RuMParser {
 
     void parseIfStmt();
 
-    void parseExpr();
+    std::shared_ptr<type_union> parseExpr();
 
     void parseBool();
 
@@ -62,33 +69,45 @@ class RuMParser {
 
     void parseBoolTerm();
 
-    void parseMathExpr();
+//    void parseMathExpr();
+//
+//    void parseMathExprPrime();
+//
+//    void parseTerm();
+//
+//    void parseTermPrime();
+//
+//    void parseFactor();
+//
+//    void parseFactorPrime();
 
-    void parseMathExprPrime();
+    std::shared_ptr<type_union> parseMathExpr();
 
-    void parseTerm();
+    std::shared_ptr<type_union> parseMathExprPrime();
 
-    void parseTermPrime();
+    std::shared_ptr<type_union> parseTerm();
 
-    void parseFactor();
+    //std::shared_ptr<type_union> parseTermPrime();
 
-    void parseFactorPrime();
+    std::shared_ptr<type_union> parseFactor();
 
-    void parseNeg();
+    std::shared_ptr<type_union> parseFactorPrime();
+
+    std::shared_ptr<type_union> parseNeg();
 
     void parseList();
 
-    void parseVar();
+    std::string parseVar();
 
-    void parseIdentifier();
+    std::string parseIdentifier();
 
-    void parseString();
+    std::shared_ptr<Type<std::string>> parseString();
 
-    void parseNum();
+    std::shared_ptr<type_union> parseNum();
 
-    void parseInt();
+    std::shared_ptr<Type<int>> parseInt();
 
-    void parseFloat();
+    std::shared_ptr<Type<float>> parseFloat();
 
     void parseKeyword();
 
