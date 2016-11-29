@@ -18,8 +18,6 @@ RuMParser::RuMParser(std::shared_ptr<std::vector<Token>> tokenList) {
     this->lastExpression = "";
 
     this->globalScope = Scope();
-    std::cout << &(this->globalScope) << std::endl;
-    this->currentScope = &(this->globalScope);
 
     // Build our keyword parsing map
     keywordParseMap["if_key"] = "[keyword if]";
@@ -114,7 +112,7 @@ void RuMParser::reset() {
 
 void RuMParser::parseProgram() {
     // Set up the scopes
-    //this->currentScope = &globalScope;
+    this->currentScope = &globalScope;
     parseTreeOutputBuffer += "[PROGRAM ";
     parseStmtList();
     parseTreeOutputBuffer += "]";
@@ -173,7 +171,6 @@ std::string RuMParser::parseAssign() {
             if (currentTokenType() == "semicolon") {
                 parseOperator();
                 // Save the variable
-                this->currentScope = &globalScope;
                 this->currentScope->setVariable(identifier, value);
             }
             else {
