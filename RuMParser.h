@@ -22,7 +22,6 @@ class RuMParser {
     std::unordered_map<std::string, std::string> operatorParseMap;
     std::string lastExpression;
 
-    Scope globalScope;
     Scope* currentScope = nullptr;
 
     // Helper functions
@@ -109,6 +108,8 @@ public:
     void parseProgram();
 
     void reset();
+
+    Scope globalScope;
 };
 
 

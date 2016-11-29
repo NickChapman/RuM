@@ -60,6 +60,7 @@ RuMInterpreter::RuMInterpreter() {
 
     // Finally we tie in our parser
     this->parser = RuMParser(tokenList);
+    std::cout << &(this->parser.globalScope) << std::endl;
 }
 
 const char &RuMInterpreter::currentCharacter() const {
