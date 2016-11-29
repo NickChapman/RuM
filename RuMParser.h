@@ -23,6 +23,7 @@ class RuMParser {
     std::string lastExpression;
 
     Scope globalScope;
+    Scope* currentScope = nullptr;
 
     // Helper functions
     std::string currentTokenType();
@@ -41,7 +42,7 @@ class RuMParser {
 
     void parseArgList();
 
-    void parseArg();
+    std::shared_ptr<TypeStruct> parseArg();
 
     void parseRef();
 

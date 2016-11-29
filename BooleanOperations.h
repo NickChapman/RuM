@@ -168,6 +168,25 @@ namespace BOOL {
             throw std::runtime_error(errorMessage);
         }
     }
+
+    std::shared_ptr<TypeStruct> negate(const std::shared_ptr<TypeStruct> value) {
+        switch (value->activeType) {
+            case 'I':
+                value->typeUnion.boolType->setValue(value->typeUnion.intType->getValue() == 0);
+                value->activeType = 'B';
+                break;
+            case 'F':
+                value->typeUnion.boolType->setValue(value->typeUnion.floatType->getValue() == 0.0);
+                value->activeType = 'B';
+                break;
+            case 'B':
+                value->typeUnion.boolType->setValue(!value->typeUnion.boolType->getValue());
+                break;
+            default:
+                throw std::runtime_error("Used '!' on a type that is not logically invertable.");
+        }
+        return value;
+    }
 }
 
 #endif //RUM_BOOLEAN_COMPARISONS_H

@@ -14,7 +14,7 @@ class Scope {
 public:
     std::shared_ptr<TypeStruct> getVariable(std::string &variableName);
 
-    void setVariable(std::string &variableName, std::shared_ptr<TypeStruct>); // TODO
+    void setVariable(std::string variableName, std::shared_ptr<TypeStruct> value); // TODO
 
     Scope();
 };
