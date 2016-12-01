@@ -187,6 +187,19 @@ namespace BOOL {
         }
         return value;
     }
+
+    bool isTrue(const std::shared_ptr<TypeStruct> value) {
+        switch(value->activeType) {
+            case 'I':
+                return (bool) value->typeUnion.intType->getValue();
+            case 'F':
+                return (bool) value->typeUnion.floatType->getValue();
+            case 'B':
+                return value->typeUnion.boolType->getValue();
+            default:
+                return false;
+        }
+    }
 }
 
 #endif //RUM_BOOLEAN_COMPARISONS_H

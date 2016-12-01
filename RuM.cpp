@@ -18,7 +18,7 @@ RuMInterpreter::RuMInterpreter() {
     inputBuffer = std::string();
     currentCharacterIndex = 0;
     tokenListPosition = 0;
-    tokenList = std::shared_ptr<std::vector<Token>>(new std::vector<Token>());
+    tokenList = std::make_shared<std::vector<Token>>();
 
     // Fill in our keyword map
     keywordMap["if"] = "if_key";
@@ -87,7 +87,7 @@ bool RuMInterpreter::isDigit(const char &character) {
 
 void RuMInterpreter::ignoreComment() {
     if (currentCharacter() == '%') {
-        while (currentCharacter() != '\n') {
+        while (currentCharacter() != '\n' && currentCharacter() != '\r') {
             ++currentCharacterIndex;
         }
         // Move to the next actual input on the next line
@@ -237,9 +237,12 @@ bool RuMInterpreter::specialToken() {
     if (currentCharacterIndex != inputBuffer.size()) {
         tokenCharacters.push_back(currentCharacter());
         ++currentCharacterIndex;
-    }
-    if (operatorToken(tokenCharacters)) {
-        return true;
+        if (operatorToken(tokenCharacters)) {
+            return true;
+        }
+        else {
+            --currentCharacterIndex;
+        }
     }
     // It wasn't a special character so we will need to back up to undo the move forward that we made
     --currentCharacterIndex;
@@ -349,9 +352,11 @@ void RuMInterpreter::fileMode(char *filename) {
     }
     else {
         tokenize();
-        for (; tokenListPosition < tokenList->size(); ++tokenListPosition) {
-            std::cout << "Token encountered: " << tokenList->at(tokenListPosition).getLexeme();
-            std::cout << " . Category: " << tokenList->at(tokenListPosition).getTokenType() << std::endl;
+        if(this->displayTokenization) {
+            for (; tokenListPosition < tokenList->size(); ++tokenListPosition) {
+                std::cout << "Token encountered: " << tokenList->at(tokenListPosition).getLexeme();
+                std::cout << " . Category: " << tokenList->at(tokenListPosition).getTokenType() << std::endl;
+            }
         }
         parse();
     }

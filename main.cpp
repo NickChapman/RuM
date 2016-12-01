@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
     if (argc == 2) {
         // Pass the filename to the interpreter
         try {
+            std::cout << "Running file: " << argv[1] << std::endl;
             interpreter.fileMode(argv[1]);
         }
         catch (const std::runtime_error& e) {

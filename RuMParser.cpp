@@ -17,7 +17,7 @@ RuMParser::RuMParser(std::shared_ptr<std::vector<Token>> tokenList) {
     this->parseTreeOutputBuffer = "";
     this->lastExpression = "";
 
-    this->globalScope = Scope();
+    this->globalScope = std::make_shared<Scope>(nullptr);
 
     // Build our keyword parsing map
     keywordParseMap["if_key"] = "[keyword if]";
@@ -105,6 +105,16 @@ void RuMParser::setLastExpression(std::shared_ptr<TypeStruct> &expression) {
     }
 }
 
+std::shared_ptr<std::vector<Token>>
+RuMParser::copyTokenSection(std::shared_ptr<std::vector<Token>> target, unsigned long startPosition,
+                            unsigned long endPosition) {
+    std::shared_ptr<std::vector<Token>> ret = std::make_shared<std::vector<Token>>();
+    for (unsigned long i = startPosition; i <= endPosition; ++i) {
+        ret->push_back(target->at(i));
+    }
+    return ret;
+}
+
 void RuMParser::reset() {
     this->parseTreeOutputBuffer = "";
     this->tokenListPosition = 0;
@@ -112,7 +122,8 @@ void RuMParser::reset() {
 
 void RuMParser::parseProgram() {
     // Set up the scopes
-    this->currentScope = &globalScope;
+    this->currentScope = globalScope;
+    // Parse the program
     parseTreeOutputBuffer += "[PROGRAM ";
     parseStmtList();
     parseTreeOutputBuffer += "]";
@@ -162,6 +173,7 @@ void RuMParser::parseStmt() {
 }
 
 std::string RuMParser::parseAssign() {
+    // TODO: Make assignments shallow copies
     parseTreeOutputBuffer += "[ASSIGN ";
     if (currentTokenType() == "identifier") {
         std::string identifier = parseVar();
@@ -189,20 +201,24 @@ std::string RuMParser::parseAssign() {
 }
 
 void RuMParser::parseFunc() {
+    std::string functionName;
+    std::string returnVariable;
+    std::shared_ptr<std::vector<std::string>> argumentsToBind = std::make_shared<std::vector<std::string>>();
+    std::shared_ptr<std::vector<Token>> instructions;
     parseTreeOutputBuffer += "[FUNC ";
     if (currentTokenType() == "function_key") {
         parseKeyword();
         if (currentTokenType() == "identifier") {
-            parseVar();
+            returnVariable = parseVar();
             if (currentTokenType() == "assignment_op") {
                 parseOperator();
                 if (currentTokenType() == "identifier") {
-                    parseIdentifier();
+                    functionName = parseIdentifier();
                     if (currentTokenType() == "open_paren") {
                         parseOperator();
                         // Parse a list of vars
                         while (currentTokenType() == "identifier") {
-                            parseVar();
+                            argumentsToBind->push_back(parseVar());
                             if (currentTokenType() == "comma") {
                                 parseOperator();
                                 // If we just parsed a comma we need to make sure there is an identifier coming
@@ -214,7 +230,17 @@ void RuMParser::parseFunc() {
                         }
                         if (currentTokenType() == "close_paren") {
                             parseOperator();
-                            parseStmtList();
+                            unsigned long startPosition = tokenListPosition;
+                            // Now we need to gather the instructions for this function
+                            while (currentTokenType() != "endfunction_key") {
+                                ++tokenListPosition;
+                            }
+                            unsigned long endPosition = tokenListPosition;
+                            instructions = this->copyTokenSection(this->tokenList, startPosition, endPosition);
+                            std::shared_ptr<Function> newFunction = std::make_shared<Function>(returnVariable,
+                                                                                               argumentsToBind,
+                                                                                               instructions);
+                            // One final check to make sure everything is right
                             if (currentTokenType() == "endfunction_key") {
                                 parseKeyword();
                             }
@@ -222,6 +248,8 @@ void RuMParser::parseFunc() {
                                 throw std::runtime_error(
                                         "Expected 'endfun' but instead received '" + currentTokenType() + "'.");
                             }
+                            // Finally save it
+                            this->currentScope->setFunction(functionName, newFunction);
                         }
                         else {
                             throw std::runtime_error("Expected ')' but instead received '" + currentTokenType() + "'.");
@@ -251,17 +279,36 @@ void RuMParser::parseFunc() {
 }
 
 std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
+    std::string functionName;
+    std::shared_ptr<Function> function;
+    std::shared_ptr<std::vector<std::shared_ptr<TypeStruct>>> arguments;
     parseTreeOutputBuffer += "[INVOKE ";
     if (currentTokenType() == "identifier") {
-        parseIdentifier();
+        functionName = parseIdentifier();
         if (currentTokenType() == "open_paren") {
             parseOperator();
-            parseArgList();
+            arguments = parseArgList();
             if (currentTokenType() == "close_paren") {
                 parseOperator();
             }
             else {
                 throw std::runtime_error("Expected ')' but instead received '" + currentTokenType() + "'.");
+            }
+            // Now we evaluate the function
+            function = this->currentScope->getFunction(functionName);
+            if (function == nullptr) {
+                throw std::runtime_error("Function `" + functionName + "` is not defined.");
+            }
+            if (arguments->size() != function->getArgumentsToBind()->size()) {
+                throw std::runtime_error("Function `" + functionName + "` takes " +
+                                         std::to_string(function->getArgumentsToBind()->size()) + " arguments but " +
+                                         std::to_string(arguments->size()) + " were given.");
+            }
+            // Assuming everything is good so far
+            std::shared_ptr<Scope> functionScope = std::make_shared<Scope>(this->currentScope);
+            this->currentScope = functionScope;
+            for(unsigned long i=0; i < arguments->size(); ++i) {
+
             }
         }
         else {
@@ -275,14 +322,16 @@ std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
     return nullptr; // TODO
 }
 
-void RuMParser::parseArgList() {
+std::shared_ptr<std::vector<std::shared_ptr<TypeStruct>>> RuMParser::parseArgList() {
     parseTreeOutputBuffer += "[ARG-LIST ";
-    parseArg();
+    std::shared_ptr<std::vector<std::shared_ptr<TypeStruct>>> values = std::make_shared<std::vector<std::shared_ptr<TypeStruct>>>();
+    values->push_back(parseArg());
     while (currentTokenType() == "comma") {
         parseOperator();
-        parseArg();
+        values->push_back(parseArg());
     }
     parseTreeOutputBuffer += "]";
+    return values;
 }
 
 std::shared_ptr<TypeStruct> RuMParser::parseArg() {
@@ -438,15 +487,49 @@ void RuMParser::parseClassAccessPrime() {
 }
 
 void RuMParser::parseWhile() {
+    std::shared_ptr<TypeStruct> condition;
     if (currentTokenType() == "while_key") {
         parseTreeOutputBuffer += "[WHILE ";
         parseKeyword();
         if (currentTokenType() == "open_paren") {
             parseOperator();
-            parseExpr();
+            unsigned long startOfCondition = tokenListPosition;
+            condition = parseExpr();
+            unsigned long endOfCondition = tokenListPosition;
             if (currentTokenType() == "close_paren") {
                 parseOperator();
-                parseStmtList();
+                unsigned long startPosition = tokenListPosition;
+                unsigned long endPosition;
+                if (BOOL::isTrue(condition)) {
+                    auto mainTokenList = this->tokenList;
+                    // We do it once to gather up the instruction set and then we repeat those instructions if it's still true
+                    parseStmtList();
+                    endPosition = tokenListPosition;
+                    auto conditionTokens = copyTokenSection(this->tokenList, startOfCondition, endOfCondition);
+                    this->setTokenList(conditionTokens);
+                    this->tokenListPosition = 0;
+                    condition = parseExpr();
+                    if (BOOL::isTrue(condition)) {
+                        auto instructions = copyTokenSection(mainTokenList, startPosition, endPosition);
+                        auto temp_holder = this->tokenList;
+                        this->setTokenList(instructions);
+                        while (BOOL::isTrue(condition)) {
+                            this->setTokenList(instructions);
+                            this->tokenListPosition = 0;
+                            parseStmtList();
+                            this->setTokenList(conditionTokens);
+                            this->tokenListPosition = 0;
+                            condition = parseExpr();
+                        }
+                    }
+                    this->setTokenList(mainTokenList);
+                    this->tokenListPosition = endPosition;
+                }
+                else {
+                    while (currentTokenType() != "endwhile_key") {
+                        ++tokenListPosition;
+                    }
+                }
                 if (currentTokenType() == "endwhile_key") {
                     parseKeyword();
                     parseTreeOutputBuffer += "]";
@@ -469,20 +552,28 @@ void RuMParser::parseWhile() {
 }
 
 void RuMParser::parseIfStmt() {
+    std::shared_ptr<TypeStruct> condition;
     if (currentTokenType() == "if_key") {
         parseTreeOutputBuffer += "[IF-STMT ";
         parseKeyword();
         if (currentTokenType() == "open_paren") {
             parseOperator();
-            parseExpr();
+            condition = parseExpr();
             // Check to make sure there is a closing paren
             if (currentTokenType() == "close_paren") {
                 parseOperator();
-                parseStmtList();
-                // Check to see if we finished on an else key
-                if (currentTokenType() == "else_key") {
-                    parseKeyword();
+                if (BOOL::isTrue(condition)) {
                     parseStmtList();
+                }
+                else {
+                    while (currentTokenType() != "else_key" && currentTokenType() != "endif_key") {
+                        ++tokenListPosition;
+                    }
+                    // Check to see if we finished on an else key
+                    if (currentTokenType() == "else_key") {
+                        parseKeyword();
+                        parseStmtList();
+                    }
                 }
                 // Now make sure that there is an endif
                 if (currentTokenType() == "endif_key") {
@@ -946,3 +1037,4 @@ void RuMParser::parseOperator() {
                 "Expected an operator token but instead received a token of type '" + currentTokenType() + "'.");
     }
 }
+

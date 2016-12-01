@@ -14,7 +14,6 @@
 class RuMInterpreter {
     // Interpreter Constants
     static const int MAX_INPUT_SIZE = 50000;
-    static const int MAX_OUTPUT_SIZE = 50000;
     static const char END_CHAR = '$';
     const char *INTERPRETER_PROMPT_NEW;
     const char *INTERPRETER_PROMPT_CONTINUED;

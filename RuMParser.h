@@ -15,19 +15,25 @@
 
 class RuMParser {
     std::shared_ptr<std::vector<Token>> tokenList;
-    unsigned int tokenListPosition;
+    unsigned long tokenListPosition;
     std::string parseTreeOutputBuffer;
     bool displayParseTree = false;
     std::unordered_map<std::string, std::string> keywordParseMap;
     std::unordered_map<std::string, std::string> operatorParseMap;
     std::string lastExpression;
 
-    Scope* currentScope = nullptr;
+    std::shared_ptr<Scope> currentScope = nullptr;
 
     // Helper functions
     std::string currentTokenType();
 
-    void setLastExpression(std::shared_ptr<TypeStruct>& expression);
+    void setLastExpression(std::shared_ptr<TypeStruct> &expression);
+
+    std::shared_ptr<std::vector<Token>>
+    copyTokenSection(std::shared_ptr<std::vector<Token>> target, unsigned long startPosition,
+                     unsigned long endPosition);
+
+    // End helpers
 
     void parseStmtList();
 
@@ -39,7 +45,7 @@ class RuMParser {
 
     std::shared_ptr<TypeStruct> parseInvoke();
 
-    void parseArgList();
+    std::shared_ptr<std::vector<std::shared_ptr<TypeStruct>>> parseArgList();
 
     std::shared_ptr<TypeStruct> parseArg();
 
@@ -109,8 +115,7 @@ public:
 
     void reset();
 
-    Scope globalScope;
+    std::shared_ptr<Scope> globalScope;
 };
-
 
 #endif //RUM_RUMPARSER_H
