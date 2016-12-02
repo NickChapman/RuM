@@ -768,7 +768,16 @@ std::shared_ptr<TypeStruct> RuMParser::parseMathExpr() {
     while (currentTokenType() == "plus_op" || currentTokenType() == "negative_op") {
         std::string operation = currentTokenType();
         parseOperator();
-        std::shared_ptr<TypeStruct> additional = parseTerm();
+        std::shared_ptr<TypeStruct> additional;
+        if(currentTokenType() == "string") {
+            additional = parseString();
+        }
+        else {
+            additional = parseTerm();
+            if(additional->activeType == 'N') {
+                throw std::runtime_error("Expected a numeric type but received `nullptr`");
+            }
+        }
         // If it's a subtraction we'll perform addition on the negative
         if (operation == "negative_op") {
             if (additional->activeType == 'I') {
