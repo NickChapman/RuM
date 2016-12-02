@@ -25,6 +25,8 @@ public:
 
     void setVariable(std::string variableName, std::shared_ptr<TypeStruct> value);
 
+    void setVariable(std::string variableName, std::shared_ptr<TypeStruct> value, bool deep);
+
     std::shared_ptr<Function> getFunction(std::string functionName);
 
     void setFunction(std::string functionName, std::shared_ptr<Function> function);

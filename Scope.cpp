@@ -25,6 +25,32 @@ std::shared_ptr<TypeStruct> Scope::getVariable(std::string &variableName) {
 void Scope::setVariable(std::string variableName, std::shared_ptr<TypeStruct> value) {
     auto iterator = this->symbolTable.find(variableName);
     if (iterator != this->symbolTable.end()) {
+        iterator->second->activeType = value->activeType;
+        switch(value->activeType) {
+            case 'I':
+                iterator->second->typeUnion.intType = value->typeUnion.intType;
+                break;
+            case 'F':
+                iterator->second->typeUnion.floatType = value->typeUnion.floatType;
+                break;
+            case 'B':
+                iterator->second->typeUnion.boolType = value->typeUnion.boolType;
+                break;
+            case 'S':
+                iterator->second->typeUnion.stringType = value->typeUnion.stringType;
+                break;
+            default:
+                iterator->second->typeUnion.intType = nullptr;
+        }
+    }
+    else {
+        this->symbolTable.emplace(variableName, value);
+    }
+}
+
+void Scope::setVariable(std::string variableName, std::shared_ptr<TypeStruct> value, bool deep) {
+    auto iterator = this->symbolTable.find(variableName);
+    if (iterator != this->symbolTable.end()) {
         iterator->second = value;
     }
     else {

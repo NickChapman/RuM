@@ -87,7 +87,7 @@ void RuMParser::setLastExpression(std::shared_ptr<TypeStruct> &expression) {
             this->lastExpression = std::to_string(expression->typeUnion.floatType->getValue());
             break;
         case 'S':
-            this->lastExpression = expression->typeUnion.stringType->getValue();
+            this->lastExpression = "'" + expression->typeUnion.stringType->getValue() + "'";
             break;
         case 'B':
             if (expression->typeUnion.boolType->getValue()) {
@@ -179,11 +179,42 @@ std::string RuMParser::parseAssign() {
         std::string identifier = parseVar();
         if (currentTokenType() == "assignment_op") {
             parseOperator();
-            std::shared_ptr<TypeStruct> value = parseArg();
+            std::shared_ptr<TypeStruct> value;
+            // Here we do what's necessary to perform shallow copying
+            bool deep = false;
+            if (currentTokenType() == "identifier" &&
+                tokenList->at(tokenListPosition + 1).getTokenType() == "semicolon") {
+                // We need to look up the RHS variable
+                std::string rhsVariable = parseVar();
+                value = this->currentScope->getVariable(rhsVariable);
+                if (value == nullptr) {
+                    throw std::runtime_error("Reference to undefined variable " + rhsVariable);
+                }
+            }
+            else {
+                // Scan to determine whether this is going to be a shallow or deep copy
+                // If the RHS has another variable in it then we're going to deep copy
+                unsigned long startingPosition = tokenListPosition;
+                while (currentTokenType() != "semicolon" and tokenListPosition < tokenList->size() - 1) {
+                    if (currentTokenType() == "identifier" &&
+                        tokenList->at(tokenListPosition + 1).getTokenType() != "dot_op" &&
+                        tokenList->at(tokenListPosition + 1).getTokenType() != "open_paren") {
+                        deep = true;
+                    }
+                    ++tokenListPosition;
+                }
+                tokenListPosition = startingPosition;
+                value = parseArg();
+            }
             if (currentTokenType() == "semicolon") {
                 parseOperator();
                 // Save the variable
-                this->currentScope->setVariable(identifier, value);
+                if (deep) {
+                    this->currentScope->setVariable(identifier, value, deep);
+                }
+                else {
+                    this->currentScope->setVariable(identifier, value);
+                }
             }
             else {
                 throw std::runtime_error("Expected ';' but instead received '" + currentTokenType() + "'.");
@@ -289,6 +320,9 @@ std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
             printFunction();
             return nullptr;
         }
+        if (functionName == "copy") {
+            return std::make_shared<TypeStruct>(parseExpr());
+        }
         if (currentTokenType() == "open_paren") {
             parseOperator();
             arguments = parseArgList();
@@ -312,24 +346,34 @@ std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
             // Assuming everything is good so far
             std::shared_ptr<Scope> callingScope = this->currentScope;
             std::shared_ptr<Scope> functionScope = std::make_shared<Scope>(this->globalScope);
-            this->currentScope = functionScope;
-            // Bind all of the arguments to variables in the function scope
-            for (unsigned long i = 0; i < arguments->size(); ++i) {
-                this->currentScope->setVariable(function->getArgumentsToBind()->at(i), arguments->at(i));
-            }
-            // Now run the code
             std::shared_ptr<std::vector<Token>> mainTokenList = this->tokenList;
             unsigned long mainTokenListPosition = this->tokenListPosition;
-            this->tokenList = function->getInstructions();
-            this->tokenListPosition = 0;
-            parseStmtList();
-            // Get the return value
-            std::string returnVariable = function->getReturnVariable();
-            std::shared_ptr<TypeStruct> ret = this->currentScope->getVariable(returnVariable);
-            this->currentScope = callingScope;
-            this->tokenList = mainTokenList;
-            this->tokenListPosition = mainTokenListPosition;
-            return ret;
+            try {
+                this->currentScope = functionScope;
+                // Bind all of the arguments to variables in the function scope
+                for (unsigned long i = 0; i < arguments->size(); ++i) {
+                    this->currentScope->setVariable(function->getArgumentsToBind()->at(i), arguments->at(i));
+                }
+                // Now run the code
+                this->tokenList = function->getInstructions();
+                this->tokenListPosition = 0;
+                parseStmtList();
+                // Get the return value
+                std::string returnVariable = function->getReturnVariable();
+                std::shared_ptr<TypeStruct> ret = this->currentScope->getVariable(returnVariable);
+                this->currentScope = callingScope;
+                this->tokenList = mainTokenList;
+                this->tokenListPosition = mainTokenListPosition;
+                return ret;
+            }
+            catch (const std::runtime_error &e) {
+                // Clean up and restore the scope before propagating the error
+                this->currentScope = callingScope;
+                this->tokenList = mainTokenList;
+                this->tokenListPosition = mainTokenListPosition;
+                throw e;
+            }
+
         }
         else {
             throw std::runtime_error("Expected '(' but instead received '" + currentTokenType() + "'.");
@@ -704,9 +748,6 @@ std::shared_ptr<TypeStruct> RuMParser::parseBoolTerm() {
         base->typeUnion.boolType = new Type<bool>("boolean", false);
         base->activeType = 'B';
     }
-    else if (currentTokenType() == "string") {
-        base = parseString();
-    }
     else {
         base = parseMathExpr();
     }
@@ -716,7 +757,14 @@ std::shared_ptr<TypeStruct> RuMParser::parseBoolTerm() {
 
 std::shared_ptr<TypeStruct> RuMParser::parseMathExpr() {
     parseTreeOutputBuffer += "[MATH-EXPR ";
-    std::shared_ptr<TypeStruct> ret = std::make_shared<TypeStruct>(parseTerm());
+    // We handle strings at this level explicitly to handle using "+" for string concatenation
+    std::shared_ptr<TypeStruct> ret;
+    if (currentTokenType() == "string") {
+        ret = parseString();
+    }
+    else {
+        ret = std::make_shared<TypeStruct>(parseTerm());
+    }
     while (currentTokenType() == "plus_op" || currentTokenType() == "negative_op") {
         std::string operation = currentTokenType();
         parseOperator();
@@ -731,25 +779,53 @@ std::shared_ptr<TypeStruct> RuMParser::parseMathExpr() {
             }
         }
         // Now do the addition
+        // Check to make sure they're not using the bool type for addition because that's undefined
+        if (additional->activeType == 'B') {
+            throw std::runtime_error("boolean is an invalid type to use in addition or subtraction");
+        }
         if (ret->activeType == 'I') {
             if (additional->activeType == 'I') {
                 ret->typeUnion.intType->setValue(
                         ret->typeUnion.intType->getValue() + additional->typeUnion.intType->getValue());
             }
-            else {
+            else if (additional->activeType == 'F') {
                 ret->typeUnion.floatType->setValue(
                         ret->typeUnion.intType->getValue() + additional->typeUnion.floatType->getValue());
                 ret->activeType = 'F';
             }
+            else {
+                ret->typeUnion.stringType->setValue(std::to_string(ret->typeUnion.intType->getValue()) +
+                                                    additional->typeUnion.stringType->getValue());
+                ret->activeType = 'S';
+            }
         }
-        else {
+        else if (ret->activeType == 'F') {
             if (additional->activeType == 'I') {
                 ret->typeUnion.floatType->setValue(
                         ret->typeUnion.floatType->getValue() + additional->typeUnion.intType->getValue());
             }
-            else {
+            else if (additional->activeType == 'F') {
                 ret->typeUnion.floatType->setValue(
                         ret->typeUnion.floatType->getValue() + additional->typeUnion.floatType->getValue());
+            }
+            else {
+                ret->typeUnion.stringType->setValue(std::to_string(ret->typeUnion.floatType->getValue()) +
+                                                    additional->typeUnion.stringType->getValue());
+                ret->activeType = 'S';
+            }
+        }
+        else {
+            if (additional->activeType == 'I') {
+                ret->typeUnion.stringType->setValue(ret->typeUnion.stringType->getValue() +
+                                                    std::to_string(additional->typeUnion.intType->getValue()));
+            }
+            else if (additional->activeType == 'F') {
+                ret->typeUnion.stringType->setValue(ret->typeUnion.stringType->getValue() +
+                                                    std::to_string(additional->typeUnion.floatType->getValue()));
+            }
+            else {
+                ret->typeUnion.stringType->setValue(
+                        ret->typeUnion.stringType->getValue() + additional->typeUnion.stringType->getValue());
             }
         }
         parseTreeOutputBuffer += "]";
@@ -892,6 +968,7 @@ std::shared_ptr<TypeStruct> RuMParser::parseNeg() {
             if (ret == nullptr) {
                 throw std::runtime_error("Reference to undefined variable " + identifier);
             }
+            ret = std::make_shared<TypeStruct>(ret);
         }
     }
     else if (currentTokenType() == "float" || currentTokenType() == "integer") {
@@ -985,7 +1062,8 @@ std::shared_ptr<TypeStruct> RuMParser::parseString() {
         parseTreeOutputBuffer += "[STRING " + token.getLexeme() + "]";
         this->lastExpression = token.getLexeme();
         ++tokenListPosition;
-        ret->typeUnion.stringType = new Type<std::string>("string", token.getLexeme());
+        ret->typeUnion.stringType = new Type<std::string>("string",
+                                                          token.getLexeme().substr(1, token.getLexeme().size() - 2));
         ret->activeType = 'S';
     }
     else {
@@ -1069,13 +1147,13 @@ void RuMParser::parseOperator() {
 
 void RuMParser::printFunction() {
     // This is to get us over the open paren
-    if(currentTokenType() != "open_paren") {
+    if (currentTokenType() != "open_paren") {
         throw std::runtime_error("RuMParser::printFunction expected '(' but instead received " + currentTokenType());
     }
     parseOperator();
     std::shared_ptr<TypeStruct> value = parseExpr();
     // Get over the close paren
-    if(currentTokenType() != "close_paren") {
+    if (currentTokenType() != "close_paren") {
         throw std::runtime_error("RuMParser::printFunction expected ')' but instead received " + currentTokenType());
     }
     parseOperator();
