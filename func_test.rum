@@ -1,0 +1,56 @@
+fundef z=h(x)
+    z=x+1;
+endfun
+
+x=h(1);
+
+fundef z=fib(x)
+if(x==0)
+    z=0;
+else
+    if(x==1)
+        z=1;
+    else
+        z=fib(x-1)+fib(x-2);
+    endif
+endif
+endfun
+
+fundef z=parent()
+    z=x+y;
+endfun
+
+fundef z=sign(x)
+if(x<0)
+    z=-1;
+else
+    z=1;
+endif
+endfun
+
+fundef z=plus_y(x)
+    if (x < 100)
+        z = plus_y(x + y);
+    else
+        z = x;
+    endif
+endfun
+
+fundef void=scope_test_assist()
+    print(function_scope_var)
+endfun
+
+fundef void=scope_test()
+    function_scope_var = 10;
+    scope_test_assist()
+endfun
+
+scope_test()
+
+y=10;
+x=5;
+x=parent();
+%x=fib(5);
+x=plus_y(0);
+sign(-1)
+$

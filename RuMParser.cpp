@@ -285,6 +285,10 @@ std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
     parseTreeOutputBuffer += "[INVOKE ";
     if (currentTokenType() == "identifier") {
         functionName = parseIdentifier();
+        if (functionName == "print") {
+            printFunction();
+            return nullptr;
+        }
         if (currentTokenType() == "open_paren") {
             parseOperator();
             arguments = parseArgList();
@@ -301,15 +305,31 @@ std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
             }
             if (arguments->size() != function->getArgumentsToBind()->size()) {
                 throw std::runtime_error("Function `" + functionName + "` takes " +
-                                         std::to_string(function->getArgumentsToBind()->size()) + " arguments but " +
+                                         std::to_string(function->getArgumentsToBind()->size()) +
+                                         " arguments but " +
                                          std::to_string(arguments->size()) + " were given.");
             }
             // Assuming everything is good so far
-            std::shared_ptr<Scope> functionScope = std::make_shared<Scope>(this->currentScope);
+            std::shared_ptr<Scope> callingScope = this->currentScope;
+            std::shared_ptr<Scope> functionScope = std::make_shared<Scope>(this->globalScope);
             this->currentScope = functionScope;
-            for(unsigned long i=0; i < arguments->size(); ++i) {
-
+            // Bind all of the arguments to variables in the function scope
+            for (unsigned long i = 0; i < arguments->size(); ++i) {
+                this->currentScope->setVariable(function->getArgumentsToBind()->at(i), arguments->at(i));
             }
+            // Now run the code
+            std::shared_ptr<std::vector<Token>> mainTokenList = this->tokenList;
+            unsigned long mainTokenListPosition = this->tokenListPosition;
+            this->tokenList = function->getInstructions();
+            this->tokenListPosition = 0;
+            parseStmtList();
+            // Get the return value
+            std::string returnVariable = function->getReturnVariable();
+            std::shared_ptr<TypeStruct> ret = this->currentScope->getVariable(returnVariable);
+            this->currentScope = callingScope;
+            this->tokenList = mainTokenList;
+            this->tokenListPosition = mainTokenListPosition;
+            return ret;
         }
         else {
             throw std::runtime_error("Expected '(' but instead received '" + currentTokenType() + "'.");
@@ -325,10 +345,13 @@ std::shared_ptr<TypeStruct> RuMParser::parseInvoke() {
 std::shared_ptr<std::vector<std::shared_ptr<TypeStruct>>> RuMParser::parseArgList() {
     parseTreeOutputBuffer += "[ARG-LIST ";
     std::shared_ptr<std::vector<std::shared_ptr<TypeStruct>>> values = std::make_shared<std::vector<std::shared_ptr<TypeStruct>>>();
-    values->push_back(parseArg());
-    while (currentTokenType() == "comma") {
-        parseOperator();
+    // Need to make sure there are actually arguments to parse
+    if (currentTokenType() != "close_paren") {
         values->push_back(parseArg());
+        while (currentTokenType() == "comma") {
+            parseOperator();
+            values->push_back(parseArg());
+        }
     }
     parseTreeOutputBuffer += "]";
     return values;
@@ -564,6 +587,9 @@ void RuMParser::parseIfStmt() {
                 parseOperator();
                 if (BOOL::isTrue(condition)) {
                     parseStmtList();
+                    while (currentTokenType() != "endif_key" && tokenListPosition < tokenList->size()) {
+                        ++tokenListPosition;
+                    }
                 }
                 else {
                     while (currentTokenType() != "else_key" && currentTokenType() != "endif_key") {
@@ -853,6 +879,9 @@ std::shared_ptr<TypeStruct> RuMParser::parseNeg() {
         // If the next token is a '(' it's a function invocation
         if (tokenList->at(tokenListPosition + 1).getTokenType() == "open_paren") {
             ret = parseInvoke();
+            if (ret == nullptr) {
+                ret = std::make_shared<TypeStruct>();
+            }
         }// If the next token is a '.' then it's a class access
         else if (tokenList->at(tokenListPosition + 1).getTokenType() == "dot_op") {
             ret = parseClassAccess();
@@ -1036,5 +1065,21 @@ void RuMParser::parseOperator() {
         throw std::runtime_error(
                 "Expected an operator token but instead received a token of type '" + currentTokenType() + "'.");
     }
+}
+
+void RuMParser::printFunction() {
+    // This is to get us over the open paren
+    if(currentTokenType() != "open_paren") {
+        throw std::runtime_error("RuMParser::printFunction expected '(' but instead received " + currentTokenType());
+    }
+    parseOperator();
+    std::shared_ptr<TypeStruct> value = parseExpr();
+    // Get over the close paren
+    if(currentTokenType() != "close_paren") {
+        throw std::runtime_error("RuMParser::printFunction expected ')' but instead received " + currentTokenType());
+    }
+    parseOperator();
+    this->setLastExpression(value);
+    std::cout << lastExpression << std::endl;
 }
 

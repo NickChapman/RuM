@@ -36,7 +36,7 @@ class RuMInterpreter {
 
     void getNextNonWhitespace();
 
-    void ignoreComment();
+    bool ignoreComment();
 
     bool numericLiteral();
 

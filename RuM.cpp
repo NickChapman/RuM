@@ -85,14 +85,16 @@ bool RuMInterpreter::isDigit(const char &character) {
     return character >= '0' && character <= '9';
 }
 
-void RuMInterpreter::ignoreComment() {
+bool RuMInterpreter::ignoreComment() {
     if (currentCharacter() == '%') {
         while (currentCharacter() != '\n' && currentCharacter() != '\r') {
             ++currentCharacterIndex;
         }
         // Move to the next actual input on the next line
         getNextNonWhitespace();
+        return true;
     }
+    return false;
 }
 
 void RuMInterpreter::fillInputBuffer() {
@@ -130,7 +132,10 @@ void RuMInterpreter::tokenize() {
         while (!endOfInputReached) {
             // Process a single token at a time
             getNextNonWhitespace();
-            ignoreComment();
+            if(ignoreComment()) {
+                // Restart the while loop so we can ignore an arbitrary number of comments
+                continue;
+            }
             if (isDigit(currentCharacter()) || currentCharacter() == '.') {
                 numericLiteral();
             }

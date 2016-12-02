@@ -99,6 +99,9 @@ class RuMParser {
 
     void parseOperator();
 
+    // RuM builtins
+    void printFunction();
+
 public:
 
     RuMParser();
